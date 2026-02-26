@@ -24,10 +24,14 @@ const Header: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleRestaurantSelect = (restaurant: Restaurant) => {
+  const handleRestaurantSelect = (restaurant: Restaurant | null) => {
     setSelectedRestaurant(restaurant);
     setIsDropdownOpen(false);
-    navigate(`/restaurant/${restaurant.slug}`);
+    if (restaurant) {
+      navigate(`/restaurant/${restaurant.slug}`);
+    } else {
+      navigate('/');
+    }
   };
 
   const visibleRestaurants = restaurants.filter(r => r.isActive === true);
@@ -68,6 +72,13 @@ const Header: React.FC = () => {
                 <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 animate-fade-in">
                   <div className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">Our Restaurants</div>
                   <div className="max-h-64 overflow-y-auto no-scrollbar">
+                    <button 
+                      onClick={() => handleRestaurantSelect(null)}
+                      className={`w-full text-left px-4 py-3 flex items-center space-x-3 hover:bg-orange-50 transition ${!selectedRestaurant ? 'bg-orange-50' : ''}`}
+                    >
+                      <Store className="h-8 w-8 p-1.5 rounded-full bg-gray-200 text-gray-600 object-cover border border-gray-100" />
+                      <span className={`text-sm font-medium ${!selectedRestaurant ? 'text-orange-700' : 'text-gray-700'}`}>None / Home</span>
+                    </button>
                     {visibleRestaurants.map(r => (
                       <button 
                         key={r.id}
