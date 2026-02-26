@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { collection, onSnapshot, addDoc, doc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -40,8 +40,7 @@ const POS: React.FC = () => {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [filteredItems, setFilteredItems] = useState<MenuItem[]>([]);
 
-  const [activeCustomCategory, setActiveCustomCategory] = useState<string | 'All'>('All'); // New state for custom categories
-
+  const [activeCategoryGroup, setActiveCategoryGroup] = useState<string | 'All'>('All'); // New state for category groups
   const [searchTerm, setSearchTerm] = useState('');
   
   // Local Cart State for POS
@@ -106,15 +105,17 @@ const POS: React.FC = () => {
     }
   }, [orderType, restaurantData?.defaultDeliveryCharge]);
 
-  // Derive unique custom categories
-  const customCategories = Array.from(new Set(menuItems.map(item => item.customCategory).filter(Boolean) as string[]));
-  const allCustomCategories = ['All', ...customCategories];
+  // Derive unique category groups
+  const categoryGroups = useMemo(() => {
+    const groups = Array.from(new Set(menuItems.map(item => item.categoryGroup).filter(Boolean) as string[]));
+    return ['All', ...groups];
+  }, [menuItems]);
 
   useEffect(() => {
     let result = menuItems;
 
-    if (activeCustomCategory !== 'All') {
-      result = result.filter(item => item.customCategory === activeCustomCategory);
+    if (activeCategoryGroup !== 'All') {
+      result = result.filter(item => item.categoryGroup === activeCategoryGroup);
     }
     if (searchTerm) {
       result = result.filter(item => 
@@ -123,7 +124,7 @@ const POS: React.FC = () => {
       );
     }
     setFilteredItems(result);
-  }, [activeCustomCategory, searchTerm, menuItems]);
+  }, [activeCategoryGroup, searchTerm, menuItems]);
 
   const handleSelectVariant = (item: MenuItem) => {
     setSelectedItemForVariants(item);
@@ -501,7 +502,7 @@ const POS: React.FC = () => {
       {/* Main Content (Product Grid) */}
       <div className="flex-1 flex flex-col overflow-hidden bg-gray-100" id="no-print">
         {/* Search Bar */}
-        <div className="p-4 md:p-6 pb-0 flex flex-col sm:flex-row gap-4 justify-between items-center shrink-0">
+       <div className="p-4 md:p-6 pb-2 space-y-4 shrink-0">
            <div className="relative w-full max-w-md">
              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
              <input 
@@ -512,13 +513,13 @@ const POS: React.FC = () => {
                onChange={(e) => setSearchTerm(e.target.value)}
              />
            </div>
-           <div className="flex space-x-2 overflow-x-auto max-w-full no-scrollbar">
-             {allCustomCategories.map(cat => (
+          <div className="flex flex-wrap gap-2">
+             {categoryGroups.map(cat => (
                <button
                  key={cat}
-                 onClick={() => setActiveCustomCategory(cat)}
+                 onClick={() => setActiveCategoryGroup(cat)}
                  className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition shadow-sm border ${
-                   activeCustomCategory === cat 
+                   activeCategoryGroup === cat 
                      ? 'bg-[#FF5722] text-white border-[#FF5722]' 
                      : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
                  }`}
@@ -541,7 +542,7 @@ const POS: React.FC = () => {
                  className="bg-white rounded-xl p-3 shadow-sm border border-gray-200 cursor-pointer hover:shadow-md hover:border-orange-300 transition flex flex-col h-full active:scale-[0.98] group relative z-10"
                >
                  <div className="h-12 w-10 bg-gray-50 rounded-lg overflow-hidden mb-3 relative">
-                    <img src={item.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <img src={item.image}  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     {qty > 0 && (
                         <div className="absolute top-2 right-2 bg-[#FF5722] text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shadow-lg border-2 border-white">
                             {qty}
@@ -551,7 +552,8 @@ const POS: React.FC = () => {
                  <div className="flex-1">
                     <div className="flex justify-between items-start mb-1">
                         <h4 className="font-bold text-gray-900 text-[10px] line-clamp-1">{item.name}</h4>
-                        </div>
+                        
+                    </div>
                     <p className="text-xs text-gray-500 font-medium">₹{item.price.toFixed(2)}</p>
                  </div>
                </div>
