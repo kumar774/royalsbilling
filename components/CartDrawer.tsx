@@ -4,7 +4,7 @@ import { useCart } from '../context/CartContext';
 import { collection, addDoc, doc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { toast } from 'react-hot-toast';
-import { OrderType, Restaurant, PaymentMethod } from '../types';
+import { OrderType, Restaurant, PaymentMethod, LastOrderDetails } from '../types';
 import { generateProfessionalReceipt } from './ReceiptPDF';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -80,9 +80,11 @@ const CartDrawer: React.FC<CartDrawerProps> = () => {
   const isFormValid = guestName.trim() !== '' && isValidPhone(guestPhone);
 
   const generateReceiptPDF = async () => {
-      if (!lastOrderData || !restaurantId) return;
+      if (!lastOrderData) return;
+      const targetRestaurantId = lastOrderData.restaurantId || restaurantId;
+      if (!targetRestaurantId) return;
       try {
-          const docSnap = await getDoc(doc(db, 'restaurants', restaurantId));
+          const docSnap = await getDoc(doc(db, 'restaurants', targetRestaurantId));
           if (docSnap.exists()) {
               const restaurantData = docSnap.data() as Restaurant;
               generateProfessionalReceipt(lastOrderData, restaurantData, 'download');
@@ -164,6 +166,7 @@ const CartDrawer: React.FC<CartDrawerProps> = () => {
       const orderConfirmationData: LastOrderDetails = {
           id: docRef.id,
           formattedId: formattedId,
+          restaurantId: restaurantId,
           total: finalTotal,
           subtotal: totalPrice,
           items: [...items],
@@ -178,7 +181,10 @@ const CartDrawer: React.FC<CartDrawerProps> = () => {
               serviceRate: taxSettings.serviceChargePercentage
           },
           upiUrl: generatedUpiUrl,
-          paymentQrLink: paymentQrLink // Include paymentQrLink here
+          paymentQrLink: paymentQrLink, // Include paymentQrLink here
+          customerName: guestName,
+          customerPhone: guestPhone,
+          paymentMethod: paymentMethod
       };
 
       setLastOrderData(orderConfirmationData);
@@ -192,8 +198,6 @@ const CartDrawer: React.FC<CartDrawerProps> = () => {
       setGuestName('');
       setGuestPhone('');
       setPaymentMethod('Online'); // Reset payment method
-      
-      // If Online, we already showed the QR code, but we can show the confirmation modal now
       
     } catch (error) {
       console.error("Checkout failed", error);
@@ -209,39 +213,58 @@ const CartDrawer: React.FC<CartDrawerProps> = () => {
     }
   };
 
-  const handleWhatsApp = () => {
+  const handleWhatsAppBill = async () => {
     if (!lastOrderData) return;
-    const { 
-        total, items, id, formattedId, subtotal, taxDetails, upiUrl, paymentQrLink
-    } = lastOrderData;
+    const targetRestaurantId = lastOrderData.restaurantId || restaurantId;
+    if (!targetRestaurantId) return;
 
-    let message = `Hello ${guestName || 'Guest'}, your order from ${restaurantName} has been placed successfully!\n\n`;
-    message += `Order ID: ${formattedId || id.slice(0, 6)}\n\n`;
-    message += `Items:\n`;
-    items.forEach(item => {
-        message += `- ${item.quantity}x ${item.name}${item.selectedVariant ? ` (${item.selectedVariant.size})` : ''} (₹${((item.selectedVariant?.price || item.price) * item.quantity).toFixed(2)})\n`;
-    });
-    message += `\nSubtotal: ₹${subtotal.toFixed(2)}\n`;
-    if (taxDetails.gstAmount > 0) {
-      message += `GST (5%): ₹${taxDetails.gstAmount.toFixed(2)}\n`;
-    }
-    if (taxDetails.serviceAmount > 0) {
-      message += `Service Charge: ₹${taxDetails.serviceAmount.toFixed(2)}\n`;
-    }
-    message += `Grand Total: ₹${total.toFixed(2)}\n\n`;
-    message += `Payment Method: ${paymentMethod}\n`;
+    try {
+        const docSnap = await getDoc(doc(db, 'restaurants', targetRestaurantId));
+        if (docSnap.exists()) {
+            const restaurantData = docSnap.data() as Restaurant;
+            
+            const { 
+                total, items, id, formattedId, subtotal, taxDetails, upiUrl, paymentQrLink, customerName, customerPhone, paymentMethod
+            } = lastOrderData;
 
-    if (paymentMethod === 'Online') {
-        if (upiUrl) {
-            message += `\nPay via App: ${upiUrl}\n`;
+            let message = `Hello ${customerName || 'Guest'}, your order from ${restaurantData.name} has been placed successfully!\n\n`;
+            message += `Order ID: ${formattedId || id.slice(0, 6)}\n\n`;
+            message += `Items:\n`;
+            items.forEach(item => {
+                message += `- ${item.quantity}x ${item.name}${item.selectedVariant ? ` (${item.selectedVariant.size})` : ''} (₹${((item.selectedVariant?.price || item.price) * item.quantity).toFixed(2)})\n`;
+            });
+            message += `\nSubtotal: ₹${subtotal.toFixed(2)}\n`;
+            if (taxDetails.gstAmount > 0) {
+              message += `GST (${taxDetails.gstRate}%): ₹${taxDetails.gstAmount.toFixed(2)}\n`;
+            }
+            if (taxDetails.serviceAmount > 0) {
+              message += `Service Charge: ₹${taxDetails.serviceAmount.toFixed(2)}\n`;
+            }
+            message += `Grand Total: ₹${total.toFixed(2)}\n\n`;
+            message += `Payment Method: ${paymentMethod}\n`;
+
+            if (paymentMethod === 'Online') {
+                if (upiUrl) {
+                    message += `\nPay via App: ${upiUrl}\n`;
+                }
+                if (paymentQrLink) {
+                    message += `\nScan Now to Pay: ${paymentQrLink}\n`;
+                }
+            }
+
+            if (restaurantData.location || restaurantData.contact) {
+                message += `\n---\n`;
+                if (restaurantData.location) message += `${restaurantData.location}\n`;
+                if (restaurantData.contact) message += `Tel: ${restaurantData.contact}\n`;
+            }
+
+            const phoneForWhatsapp = customerPhone || '';
+            const whatsappUrl = `https://wa.me/${phoneForWhatsapp.replace(/\D/g,'')}?text=${encodeURIComponent(message)}`;
+            window.open(whatsappUrl, '_blank');
         }
-        if (paymentQrLink) {
-            message += `\nScan Now to Pay: ${paymentQrLink}\n`;
-        }
+    } catch (err) {
+        console.error("Error generating WhatsApp bill:", err);
     }
-
-    const whatsappUrl = `https://wa.me/${guestPhone.replace(/\D/g,'')}?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, '_blank');
   };
 
   if (lastOrderData && isOpen) {
@@ -253,8 +276,8 @@ const CartDrawer: React.FC<CartDrawerProps> = () => {
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">Order Confirmed!</h3>
                 <p className="text-gray-500 text-sm mb-6">
-                    Your order #{lastOrderData.id.slice(0,6)} has been received. 
-                    <br/>Total: <span className="font-bold text-gray-900">₹{lastOrderData.total.toFixed(2)}</span>
+                    Your order #{lastOrderData.formattedId || lastOrderData.id.slice(0,6)} has been received. 
+                    <br/>Total: <span className="font-bold text-gray-900 font-mono">₹{lastOrderData.total.toFixed(2)}</span>
                 </p>
                 <div className="space-y-3 mb-3">
                     <button 
@@ -264,8 +287,8 @@ const CartDrawer: React.FC<CartDrawerProps> = () => {
                         <Download className="h-4 w-4 mr-2" /> Download Receipt
                     </button>
                     <button 
-                        onClick={handleWhatsApp} 
-                        disabled={!guestPhone} 
+                        onClick={handleWhatsAppBill} 
+                        disabled={!lastOrderData.customerPhone} 
                         className="w-full flex items-center justify-center px-4 py-3 bg-green-500 text-white rounded-xl font-bold hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <MessageSquare className="h-4 w-4 mr-2" /> 
@@ -467,7 +490,7 @@ const CartDrawer: React.FC<CartDrawerProps> = () => {
 
             {/* 3. Footer (Sticky) */}
             {items.length > 0 && (
-              <div class="shrink-0 p-4 bg-white border-t border-gray-200 z-20 shadow-[0_-4px_15px_rgba(0,0,0,0.03)] relative">
+              <div className="shrink-0 p-4 bg-white border-t border-gray-200 z-20 shadow-[0_-4px_15px_rgba(0,0,0,0.03)] relative">
                 <div className="space-y-4 mb-4">
                    <div className="grid grid-cols-2 gap-2">
                         <div className="relative">
@@ -523,27 +546,27 @@ const CartDrawer: React.FC<CartDrawerProps> = () => {
                 <div className="space-y-1.5 pt-4 border-t border-dashed border-gray-200 mb-4">
                     <div className="flex justify-between text-xs text-gray-500">
                         <span>Subtotal</span>
-                        <span>₹{totalPrice.toFixed(2)}</span>
+                        <span className="font-mono text-right w-20">₹{totalPrice.toFixed(2)}</span>
                     </div>
                     {deliveryFee > 0 && (
                         <div className="flex justify-between text-xs text-gray-900 font-bold">
                             <span>Delivery Fee</span>
-                            <span>₹{deliveryFee.toFixed(2)}</span>
+                            <span className="font-mono text-right w-20">₹{deliveryFee.toFixed(2)}</span>
                         </div>
                     )}
                     <div className="flex justify-between text-xs text-gray-500">
                         <span>GST ({gstPercentage}%)</span>
-                        <span>₹{gstAmount.toFixed(2)}</span>
+                        <span className="font-mono text-right w-20">₹{gstAmount.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-xs text-gray-500">
                         <span>Service Charge ({serviceChargePercentage}%)</span>
-                        <span>₹{serviceAmount.toFixed(2)}</span>
+                        <span className="font-mono text-right w-20">₹{serviceAmount.toFixed(2)}</span>
                     </div>
                 </div>
 
                 <div className="flex justify-between items-end mb-4 pt-2 border-t border-gray-100">
                     <span className="text-sm font-bold text-gray-800">Total Payable</span>
-                    <span className="text-2xl font-extrabold text-gray-900 tracking-tight">₹{finalTotal.toFixed(2)}</span>
+                    <span className="text-2xl font-extrabold text-gray-900 tracking-tight font-mono text-right">₹{finalTotal.toFixed(2)}</span>
                 </div>
 
                 <button 
