@@ -33,8 +33,11 @@ const Settings: React.FC = () => {
       logoUrl: '',
       heroTitle: 'Delicious Food Delivered',
       heroSubtitle: 'Order from the best local menu instantly.',
+      heroImage: '',
+      aboutText: '',
       primaryColor: '#ea580c' // Default Orange-600
     } as ThemeSettings,
+    homeViewMode: 'Default List',
     // Tax Settings (Simplified access for this view)
     taxSettings: {
         gstPercentage: 5,
@@ -77,8 +80,11 @@ const Settings: React.FC = () => {
               logoUrl: data.theme?.logoUrl || data.logo || '',
               heroTitle: data.theme?.heroTitle || `Welcome to ${data.name}`,
               heroSubtitle: data.theme?.heroSubtitle || 'Experience the best flavors in town.',
+              heroImage: data.theme?.heroImage || data.bannerImage || '',
+              aboutText: data.theme?.aboutText || '',
               primaryColor: data.theme?.primaryColor || '#ea580c'
             },
+            homeViewMode: data.homeViewMode || 'Default List',
             taxSettings: {
                 gstPercentage: data.taxSettings?.gstPercentage ?? 5,
                 serviceChargePercentage: data.taxSettings?.serviceChargePercentage ?? 0,
@@ -345,6 +351,46 @@ const Settings: React.FC = () => {
                                     onChange={(e) => setFormData({...formData, theme: {...formData.theme, heroSubtitle: e.target.value}})}
                                     rows={2}
                                 />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Hero Image URL</label>
+                                <input 
+                                    type="text" 
+                                    className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                                    value={formData.theme.heroImage}
+                                    onChange={(e) => setFormData({...formData, theme: {...formData.theme, heroImage: e.target.value}})}
+                                    placeholder="https://images.unsplash.com/..."
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">About Section Text</label>
+                                <textarea 
+                                    className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                                    value={formData.theme.aboutText}
+                                    onChange={(e) => setFormData({...formData, theme: {...formData.theme, aboutText: e.target.value}})}
+                                    rows={4}
+                                    placeholder="Tell your customers about your restaurant..."
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="border-t border-gray-100 pt-6">
+                        <h4 className="font-bold text-gray-900 mb-4 flex items-center">
+                            <Layout className="h-4 w-4 mr-2 text-gray-500" /> Home Page View
+                        </h4>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Home Page Display Mode</label>
+                                <select 
+                                    className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500 bg-white"
+                                    value={formData.homeViewMode}
+                                    onChange={(e) => setFormData({...formData, homeViewMode: e.target.value as 'Landing Page' | 'Default List'})}
+                                >
+                                    <option value="Default List">Default List</option>
+                                    <option value="Landing Page">Landing Page</option>
+                                </select>
+                                <p className="text-xs text-gray-500 mt-1">Select what to show on the main page when no restaurant is selected.</p>
                             </div>
                         </div>
                     </div>
