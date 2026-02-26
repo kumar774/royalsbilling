@@ -10,7 +10,11 @@ import { Search, ChevronLeft, AlertCircle } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useRestaurants } from '../context/RestaurantContext';
 
-const RestaurantFrontPage: React.FC = () => {
+interface RestaurantFrontPageProps {
+  isMenuOnly?: boolean;
+}
+
+const RestaurantFrontPage: React.FC<RestaurantFrontPageProps> = () => {
   const { slug } = useParams<{ slug: string }>();
   const [activeCategoryGroup, setActiveCategoryGroup] = useState<string | 'All'>('All');
   const [searchTerm, setSearchTerm] = useState('');
@@ -19,7 +23,7 @@ const RestaurantFrontPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
   const { updateTheme, resetTheme } = useTheme();
-  const { selectedRestaurant: restaurantFromContext, setSelectedRestaurant } = useRestaurants();
+  const { restaurants, selectedRestaurant: restaurantFromContext, setSelectedRestaurant } = useRestaurants();
   const restaurantFromContextRef = React.useRef(restaurantFromContext);
 
   // Derive unique category groups
@@ -127,7 +131,35 @@ const RestaurantFrontPage: React.FC = () => {
     return () => unsubscribeRestaurant();
   }, [slug, updateTheme, setSelectedRestaurant]);
 
+
+
   // Handle Error State (e.g. Deleted while viewing or invalid slug)
+  if (!slug && !restaurantFromContext) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-6">Our Restaurants</h1>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {restaurants.filter(r => r.isActive).map(r => (
+            <Link key={r.id} to={`/restaurant/${r.slug}`} className="group bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transform hover:-translate-y-2 transition-transform duration-300">
+              <div className="h-48 overflow-hidden">
+                <img src={r.bannerImage} alt={r.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+              </div>
+              <div className="p-6">
+                <div className="flex items-start gap-4">
+                  <img src={r.logo} alt={`${r.name} logo`} className="h-12 w-12 rounded-full border-2 border-white -mt-12 shadow-md" />
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">{r.name}</h3>
+                    <p className="text-sm text-gray-500 mt-1">{r.cuisine.join(', ')}</p>
+                  </div>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   if (error) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
