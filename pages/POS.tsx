@@ -551,8 +551,7 @@ const POS: React.FC = () => {
                  <div className="flex-1">
                     <div className="flex justify-between items-start mb-1">
                         <h4 className="font-bold text-gray-900 text-[10px] line-clamp-1">{item.name}</h4>
-                        <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${item.category === 'Veg' ? 'bg-green-500' : item.category === 'Non-Veg' ? 'bg-red-500' : 'bg-blue-500'}`} />
-                    </div>
+                        </div>
                     <p className="text-xs text-gray-500 font-medium">₹{item.price.toFixed(2)}</p>
                  </div>
                </div>
