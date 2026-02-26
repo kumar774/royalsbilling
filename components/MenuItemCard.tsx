@@ -85,8 +85,8 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, restaurantId, onSelec
       </div>
 
       <div className="flex flex-col items-center space-y-3 relative w-32 flex-shrink-0">
-        <div className="w-32 h-28 rounded-xl overflow-hidden relative bg-gray-100">
-           <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+        <div className="w-22 h-18 rounded-xl overflow-hidden relative bg-gray-100">
+           <img src={item.image} className="w-full h-full object-cover" />
         </div>
         
         <div className="absolute -bottom-3 w-24 shadow-lg bg-white rounded-lg overflow-hidden border border-gray-100">
