@@ -398,7 +398,7 @@ const POS: React.FC = () => {
     });
     message += `\nSubtotal: ₹${lastOrderDetails.subtotal.toFixed(2)}\n`;
     if (lastOrderDetails.taxDetails.gstAmount > 0) {
-      message += `GST (5%): ₹${lastOrderDetails.taxDetails.gstAmount.toFixed(2)}\n`;
+      message += `GST (${lastOrderDetails.taxDetails.gstRate}%): ₹${lastOrderDetails.taxDetails.gstAmount.toFixed(2)}\n`;
     }
     if (lastOrderDetails.taxDetails.serviceAmount > 0) {
       message += `Service Charge: ₹${lastOrderDetails.taxDetails.serviceAmount.toFixed(2)}\n`;
@@ -413,6 +413,12 @@ const POS: React.FC = () => {
         if (paymentQrLink) {
             message += `\nScan Now to Pay: ${paymentQrLink}\n`;
         }
+    }
+
+    if (restaurantData.location || restaurantData.contact) {
+        message += `\n---\n`;
+        if (restaurantData.location) message += `${restaurantData.location}\n`;
+        if (restaurantData.contact) message += `Tel: ${restaurantData.contact}\n`;
     }
 
     const whatsappUrl = `https://wa.me/${customerPhone.replace(/\D/g,'')}?text=${encodeURIComponent(message)}`;
