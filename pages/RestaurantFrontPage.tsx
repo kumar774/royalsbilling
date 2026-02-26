@@ -1,19 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import RestaurantHero from '../components/RestaurantHero';
 import MenuItemCard from '../components/MenuItemCard';
 import MenuSkeleton from '../components/MenuSkeleton';
-import { CategoryType, MenuItem, Restaurant } from '../types';
+import { MenuItem, Restaurant } from '../types';
 import { Search, ChevronLeft, AlertCircle } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useRestaurants } from '../context/RestaurantContext';
 
 const RestaurantFrontPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
-  const [activeCategory, setActiveCategory] = useState<CategoryType | 'All'>('All');
-  const [activeCategoryGroup, ] = useState<string | 'All'>('All'); // New state for category groups
+  const [activeCategoryGroup, setActiveCategoryGroup] = useState<string | 'All'>('All');
   const [searchTerm, setSearchTerm] = useState('');
   
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
@@ -22,6 +21,23 @@ const RestaurantFrontPage: React.FC = () => {
   const { updateTheme, resetTheme } = useTheme();
   const { selectedRestaurant: restaurantFromContext, setSelectedRestaurant } = useRestaurants();
   const restaurantFromContextRef = React.useRef(restaurantFromContext);
+
+  // Derive unique category groups
+  const categoryGroups = useMemo(() => {
+    if (!restaurant?.menu) return ['All'];
+    const groups = Array.from(new Set(restaurant.menu.map(item => item.categoryGroup).filter(Boolean) as string[]));
+    return ['All', ...groups];
+  }, [restaurant?.menu]);
+
+  const filteredMenu = useMemo(() => {
+    if (!restaurant?.menu) return [];
+    return restaurant.menu.filter(item => {
+      const matchesCategoryGroup = activeCategoryGroup === 'All' || item.categoryGroup === activeCategoryGroup;
+      const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                            item.description.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesCategoryGroup && matchesSearch;
+    });
+  }, [restaurant?.menu, activeCategoryGroup, searchTerm]);
 
   useEffect(() => {
     restaurantFromContextRef.current = restaurantFromContext;
@@ -154,7 +170,7 @@ const RestaurantFrontPage: React.FC = () => {
         {/* Menu Grid Skeleton */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-8">
            <div className="h-8 bg-gray-200 rounded w-48 mb-6 animate-pulse" />
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8">
+           <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
             {[...Array(6)].map((_, index) => (
               <div key={index} className="h-full">
                 <MenuSkeleton />
@@ -166,19 +182,6 @@ const RestaurantFrontPage: React.FC = () => {
     );
   }
 
-  // Main Content
-  const categories = ['All', ...Array.from(new Set(restaurant.menu.map(item => item.category)))];
-
-
-
-  const filteredMenu = restaurant.menu.filter(item => {
-    const matchesCategory = activeCategory === 'All' || item.category === activeCategory;
-    const matchesCategoryGroup = activeCategoryGroup === 'All' || item.categoryGroup === activeCategoryGroup;
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          item.description.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesCategory && matchesCategoryGroup && matchesSearch;
-  });
-  
   const primaryColor = restaurant.theme?.primaryColor || '#ea580c';
 
   // Group menu items by categorySpecific
@@ -200,16 +203,16 @@ const RestaurantFrontPage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
            <div className="flex items-center justify-between py-4 overflow-x-auto no-scrollbar gap-4">
               <div className="flex space-x-2 md:space-x-8 min-w-max">
-                 {categories.map((cat) => (
+                 {categoryGroups.map((cat) => (
                     <button
                       key={cat}
-                      onClick={() => setActiveCategory(cat as CategoryType | 'All')}
+                      onClick={() => setActiveCategoryGroup(cat)}
                       style={{ 
-                          color: activeCategory === cat ? primaryColor : undefined,
-                          borderColor: activeCategory === cat ? primaryColor : undefined
+                          color: activeCategoryGroup === cat ? primaryColor : undefined,
+                          borderColor: activeCategoryGroup === cat ? primaryColor : undefined
                       }}
                       className={`text-sm font-medium pb-2 border-b-2 transition-colors whitespace-nowrap ${
-                        activeCategory === cat 
+                        activeCategoryGroup === cat 
                         ? '' // Style applied via inline style for dynamic color
                         : 'border-transparent text-gray-500 hover:text-gray-900'
                       }`}
@@ -237,9 +240,7 @@ const RestaurantFrontPage: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6 flex items-center justify-between">
             <h2 className="text-2xl font-bold text-gray-800">
-                {activeCategory === 'All' && activeCategoryGroup === 'All' ? 'Full Menu' : 
-                 activeCategoryGroup !== 'All' ? `${activeCategoryGroup} Menu` : 
-                 `${activeCategory} Items`}
+                {activeCategoryGroup === 'All' ? 'Full Menu' : `${activeCategoryGroup} Menu`}
             </h2>
             <span className="text-gray-500 text-sm">{filteredMenu.length} items</span>
         </div>
@@ -248,7 +249,7 @@ const RestaurantFrontPage: React.FC = () => {
             Object.keys(groupedMenu).sort().map(categorySpecific => (
                 <div key={categorySpecific} className="mb-8">
                     <h3 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2 border-gray-200">{categorySpecific}</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8">
+                    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
                         {groupedMenu[categorySpecific].map(item => (
                             <div key={item.id} className="h-full">
                                 <MenuItemCard item={item} restaurantId={restaurant.id} />
@@ -261,7 +262,7 @@ const RestaurantFrontPage: React.FC = () => {
             <div className="text-center py-20">
                 <p className="text-gray-500 text-lg">No items found matching your criteria.</p>
                 <button 
-                  onClick={() => {setActiveCategory('All'); setSearchTerm('');}}
+                  onClick={() => {setActiveCategoryGroup('All'); setSearchTerm('');}}
                   style={{ color: primaryColor }}
                   className="mt-4 font-medium hover:underline"
                 >
