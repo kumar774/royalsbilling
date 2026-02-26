@@ -419,61 +419,62 @@ const CartDrawer: React.FC<CartDrawerProps> = () => {
             </button>
           </div>
 
-          {/* 2. Scrollable Items (Body) */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar bg-gray-50/30 z-0">
-            {items.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-60">
-                <div className="bg-gray-50 p-6 rounded-full">
-                  <ShoppingBag className="h-12 w-12 text-gray-300" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900">Your cart is empty</h3>
-                  <p className="text-gray-500 text-sm mt-1">Looks like you haven&apos;t added anything yet.</p>
-                </div>
-                <button onClick={toggleCart} className="text-[#FF5722] font-bold hover:underline">
-                  Start Browsing
-                </button>
-              </div>
-            ) : (
-              items.map((item) => (
-                <div key={`${item.id}-${item.selectedVariant?.size || ''}`} className="flex items-center gap-3 bg-white p-3 rounded-xl shadow-sm border border-gray-100">
-                  {/* Item Image */}
-                  <div className="w-12 h-12 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden border border-gray-100">
-                     <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+          {/* 2. Content Area (Scrollable) */}
+          <div className="flex-1 overflow-y-auto no-scrollbar bg-gray-50/30 relative">
+            <div className="p-6 space-y-4">
+              {items.length === 0 ? (
+                <div className="min-h-[60vh] flex flex-col items-center justify-center text-center space-y-4 opacity-60">
+                  <div className="bg-gray-50 p-6 rounded-full">
+                    <ShoppingBag className="h-12 w-12 text-gray-300" />
                   </div>
-                  
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 line-clamp-1">{item.name} {item.selectedVariant && <span className="text-[10px] text-orange-600">({item.selectedVariant.size})</span>}</p>
-                    <p className="text-xs text-gray-500 font-medium">₹{(item.selectedVariant?.price || item.price).toFixed(2)}</p>
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900">Your cart is empty</h3>
+                    <p className="text-gray-500 text-sm mt-1">Looks like you haven&apos;t added anything yet.</p>
                   </div>
+                  <button onClick={toggleCart} className="text-[#FF5722] font-bold hover:underline">
+                    Start Browsing
+                  </button>
+                </div>
+              ) : (
+                items.map((item) => (
+                  <div key={`${item.id}-${item.selectedVariant?.size || ''}`} className="flex items-center gap-3 bg-white p-3 rounded-xl shadow-sm border border-gray-100">
+                    {/* Item Image */}
+                    <div className="w-12 h-12 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden border border-gray-100">
+                       <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                    </div>
+                    
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 line-clamp-1">{item.name} {item.selectedVariant && <span className="text-[10px] text-orange-600">({item.selectedVariant.size})</span>}</p>
+                      <p className="text-xs text-gray-500 font-medium">₹{(item.selectedVariant?.price || item.price).toFixed(2)}</p>
+                    </div>
 
-                  {/* Controls */}
-                  <div className="flex items-center gap-3">
-                     <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-0.5 border border-gray-200">
-                        <button onClick={() => updateQuantity(item.id, -1, item.selectedVariant?.size)} className="w-6 h-6 flex items-center justify-center rounded bg-white shadow-sm text-gray-600 hover:text-red-500"><Minus className="h-3 w-3" /></button>
-                        <span className="text-xs font-bold text-gray-900 w-5 text-center">{item.quantity}</span>
-                        <button onClick={() => updateQuantity(item.id, 1, item.selectedVariant?.size)} className="w-6 h-6 flex items-center justify-center rounded bg-white shadow-sm text-green-600 hover:text-green-700"><Plus className="h-3 w-3" /></button>
-                     </div>
-                     <div className="flex flex-col items-end min-w-[4rem]">
-                        <span className="text-sm font-bold text-gray-900">₹{((item.selectedVariant?.price || item.price) * item.quantity).toFixed(0)}</span>
-                        <button 
-                          onClick={() => removeItem(item.cartItemId)} 
-                          className="text-gray-400 hover:text-red-500 transition-colors mt-1"
-                          title="Remove item"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                     </div>
+                    {/* Controls */}
+                    <div className="flex items-center gap-3">
+                       <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-0.5 border border-gray-200">
+                          <button onClick={() => updateQuantity(item.cartItemId, -1)} className="w-6 h-6 flex items-center justify-center rounded bg-white shadow-sm text-gray-600 hover:text-red-500"><Minus className="h-3 w-3" /></button>
+                          <span className="text-xs font-bold text-gray-900 w-5 text-center">{item.quantity}</span>
+                          <button onClick={() => updateQuantity(item.cartItemId, 1)} className="w-6 h-6 flex items-center justify-center rounded bg-white shadow-sm text-green-600 hover:text-green-700"><Plus className="h-3 w-3" /></button>
+                       </div>
+                       <div className="flex flex-col items-end min-w-[4rem]">
+                          <span className="text-sm font-bold text-gray-900">₹{((item.selectedVariant?.price || item.price) * item.quantity).toFixed(0)}</span>
+                          <button 
+                            onClick={() => removeItem(item.cartItemId)} 
+                            className="text-gray-400 hover:text-red-500 transition-colors mt-1 p-1 hover:bg-red-50 rounded"
+                            title="Remove item"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                       </div>
+                    </div>
                   </div>
-                </div>
-              ))
-            )}
-          </div>
+                ))
+              )}
+            </div>
 
-          {/* 3. Footer (Fixed) */}
-          {items.length > 0 && (
-            <div className="shrink-0 bg-white p-4 border-t border-gray-200 shadow-[0_-8px_30px_rgba(0,0,0,0.05)] z-20">
+            {/* 3. Footer (Sticky) */}
+            {items.length > 0 && (
+              <div class="shrink-0 p-4 bg-white border-t border-gray-200 z-20 shadow-[0_-4px_15px_rgba(0,0,0,0.03)] relative">
                 <div className="space-y-4 mb-4">
                    <div className="grid grid-cols-2 gap-2">
                         <div className="relative">
@@ -587,6 +588,7 @@ const CartDrawer: React.FC<CartDrawerProps> = () => {
                 </button>
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>
