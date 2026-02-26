@@ -56,9 +56,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, restaurantId, onSelec
       <div className="flex flex-col justify-between flex-1">
         <div>
           <div className="flex items-start space-x-2">
-            <div className={`w-4 h-4 mt-1 rounded-sm border flex items-center justify-center ${item.category === 'Veg' ? 'border-green-600' : item.category === 'Non-Veg' ? 'border-red-600' : 'border-blue-600'}`}>
-              <div className={`w-2 h-2 rounded-full ${item.category === 'Veg' ? 'bg-green-600' : item.category === 'Non-Veg' ? 'bg-red-600' : 'bg-blue-600'}`} />
-            </div>
+            
             {item.isBestseller && (
               <span className="text-xs font-bold text-yellow-600 bg-yellow-50 px-1.5 py-0.5 rounded">
                 Bestseller
@@ -66,7 +64,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, restaurantId, onSelec
             )}
           </div>
           
-          <h3 className="font-bold text-gray-900 mt-2 text-lg">{item.name}</h3>
+          <h3 className="font-bold text-gray-900 mt-2 text-sm">{item.name}</h3>
           <div className="font-semibold text-gray-700 mt-1">₹{item.price.toFixed(2)}</div>
           
           {item.rating && (
@@ -84,8 +82,8 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, restaurantId, onSelec
         </div>
       </div>
 
-      <div className="flex flex-col items-center space-y-3 relative w-32 flex-shrink-0">
-        <div className="w-22 h-18 rounded-xl overflow-hidden relative bg-gray-100">
+      <div className="flex flex-col items-center space-y-3 relative w-25 flex-shrink-0">
+        <div className="w-20 h-16 rounded-xl overflow-hidden relative bg-gray-100">
            <img src={item.image} className="w-full h-full object-cover" />
         </div>
         
