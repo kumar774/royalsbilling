@@ -22,8 +22,12 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, restaurantId, onSelec
   const quantity = getItemQuantity(item.id);
 
   const addToCart = () => {
-    if (item.variants && item.variants.length > 0) {
+    if (item.variants && item.variants.length > 1) {
       setShowVariantModal(true);
+    } else if (item.variants && item.variants.length === 1) {
+      // Add the single variant directly
+      const variant = item.variants[0];
+      addItem({ ...item, selectedVariant: variant, price: variant.price }, restaurantId);
     } else {
       addItem(item, restaurantId);
     }
