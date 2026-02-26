@@ -531,7 +531,7 @@ const POS: React.FC = () => {
 
         {/* Menu Grid */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6 no-scrollbar relative z-10">
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-2">
              {filteredItems.map(item => {
                const qty = cart.filter(c => c.id === item.id).reduce((sum, c) => sum + c.quantity, 0);
                return (
@@ -540,8 +540,8 @@ const POS: React.FC = () => {
                  onClick={() => item.variants && item.variants.length > 0 ? handleSelectVariant(item) : addToCart(item)}
                  className="bg-white rounded-xl p-3 shadow-sm border border-gray-200 cursor-pointer hover:shadow-md hover:border-orange-300 transition flex flex-col h-full active:scale-[0.98] group relative z-10"
                >
-                 <div className="h-32 w-full bg-gray-50 rounded-lg overflow-hidden mb-3 relative">
-                    <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                 <div className="h-12 w-10 bg-gray-50 rounded-lg overflow-hidden mb-3 relative">
+                    <img src={item.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     {qty > 0 && (
                         <div className="absolute top-2 right-2 bg-[#FF5722] text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shadow-lg border-2 border-white">
                             {qty}
@@ -550,7 +550,7 @@ const POS: React.FC = () => {
                  </div>
                  <div className="flex-1">
                     <div className="flex justify-between items-start mb-1">
-                        <h4 className="font-bold text-gray-900 text-sm line-clamp-1">{item.name}</h4>
+                        <h4 className="font-bold text-gray-900 text-[10px] line-clamp-1">{item.name}</h4>
                         <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${item.category === 'Veg' ? 'bg-green-500' : item.category === 'Non-Veg' ? 'bg-red-500' : 'bg-blue-500'}`} />
                     </div>
                     <p className="text-xs text-gray-500 font-medium">₹{item.price.toFixed(2)}</p>
