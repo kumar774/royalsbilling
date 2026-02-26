@@ -82,13 +82,29 @@ export const generateProfessionalReceipt = (
 
     // Header
     doc.setFontSize(fontSizeLarge);
-    doc.setFont("helvetica", "bold");
+    doc.setFont("courier", "bold");
     doc.text(restaurant.name, pageWidth / 2, y, { align: "center" });
-    y += fontSizeLarge * 0.7;
+    y += fontSizeLarge * 0.5;
+    
+    doc.setFontSize(fontSizeSmall);
+    doc.setFont("courier", "normal");
+    
+    if (restaurant.location) {
+        const addressLines = doc.splitTextToSize(restaurant.location, contentWidth);
+        doc.text(addressLines, pageWidth / 2, y, { align: "center" });
+        y += (addressLines.length * fontSizeSmall * 0.4);
+    }
+    
+    if (restaurant.contact) {
+        doc.text(`Tel: ${restaurant.contact}`, pageWidth / 2, y, { align: "center" });
+        y += fontSizeSmall * 0.6;
+    }
+    
+    y += 2; // Extra spacing before order info
     
     // Order Info
     doc.setFontSize(fontSizeNormal);
-    doc.setFont("helvetica", "normal");
+    doc.setFont("courier", "normal");
     
     const orderId = order.formattedId || order.id.slice(0, 6);
     doc.text(`Order ID: ${orderId}`, margin, y);
