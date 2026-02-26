@@ -7,6 +7,7 @@ import { Search, Plus, Minus, Trash2, CreditCard, Loader2, Printer, MessageSquar
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'react-hot-toast';
 import { generateProfessionalReceipt } from '../components/ReceiptPDF';
+import { Edit2 } from 'lucide-react';
 
 
 interface LastOrderDetails {
@@ -58,6 +59,9 @@ const POS: React.FC = () => {
   // Bill Modal State
   const [showBillModal, setShowBillModal] = useState(false);
   const [lastOrderDetails, setLastOrderDetails] = useState<LastOrderDetails | null>(null);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [tempCategoryOrder, setTempCategoryOrder] = useState<string[]>([]);
+  const [showImages, setShowImages] = useState(true);
 
   const printReceipt = async (order: LastOrderDetails) => {
     if (!restaurantData) return;
@@ -107,9 +111,19 @@ const POS: React.FC = () => {
 
   // Derive unique category groups
   const categoryGroups = useMemo(() => {
-    const groups = Array.from(new Set(menuItems.map(item => item.categoryGroup).filter(Boolean) as string[]));
-    return ['All', ...groups];
-  }, [menuItems]);
+    if (!restaurantData?.categoryGroupOrder) {
+        const groups = Array.from(new Set(menuItems.map(item => item.categoryGroup).filter(Boolean) as string[]));
+        return ['All', ...groups];
+    }
+    const orderedGroups = restaurantData.categoryGroupOrder.filter(group => 
+        menuItems.some(item => item.categoryGroup === group)
+    );
+    const newGroups = menuItems
+        .map(item => item.categoryGroup)
+        .filter((group): group is string => !!group && !orderedGroups.includes(group));
+    const uniqueNewGroups = [...new Set(newGroups)];
+    return ['All', ...orderedGroups, ...uniqueNewGroups];
+}, [menuItems, restaurantData?.categoryGroupOrder]);
 
   useEffect(() => {
     let result = menuItems;
@@ -132,7 +146,7 @@ const POS: React.FC = () => {
   };
 
   const addToCart = (item: MenuItem, variant?: Variant) => {
-    if (item.variants && item.variants.length > 0 && !variant) {
+    if (item.variants && item.variants.length > 1 && !variant) {
       // This case should ideally be handled by onSelectVariant prop from MenuItemCard
       // but as a fallback or direct call, ensure modal opens.
       setSelectedItemForVariants(item);
@@ -140,8 +154,11 @@ const POS: React.FC = () => {
       return;
     }
 
+    // If there's exactly 1 variant and no variant was passed, use that single variant
+    const effectiveVariant = variant || (item.variants && item.variants.length === 1 ? item.variants[0] : undefined);
+
     setCart(prev => {
-      const itemKey = variant ? `${item.id}-${variant.size}` : item.id;
+      const itemKey = effectiveVariant ? `${item.id}-${effectiveVariant.size}` : item.id;
       const existing = prev.find(i => {
         const iKey = i.selectedVariant ? `${i.id}-${i.selectedVariant.size}` : i.id;
         return iKey === itemKey;
@@ -157,8 +174,8 @@ const POS: React.FC = () => {
       const newItem: CartItem = {
         ...item,
         quantity: 1,
-        price: variant ? variant.price : item.price,
-        selectedVariant: variant
+        price: effectiveVariant ? effectiveVariant.price : item.price,
+        selectedVariant: effectiveVariant
       };
       return [...prev, newItem];
     });
@@ -403,8 +420,93 @@ const POS: React.FC = () => {
   };
 
 
+  const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
+
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+    setDraggedItemIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+    e.preventDefault();
+    if (draggedItemIndex === null || draggedItemIndex === index) return;
+
+    const items = Array.from(tempCategoryOrder);
+    const draggedItem = items[draggedItemIndex];
+    items.splice(draggedItemIndex, 1);
+    items.splice(index, 0, draggedItem);
+
+    setTempCategoryOrder(items);
+    setDraggedItemIndex(index);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDraggedItemIndex(null);
+  };
+
+  const handleSaveCategoryOrder = () => {
+    if (restaurantId) {
+        const restaurantRef = doc(db, 'restaurants', restaurantId);
+        updateDoc(restaurantRef, { categoryGroupOrder: tempCategoryOrder });
+        if (restaurantData) {
+            setRestaurantData({ ...restaurantData, categoryGroupOrder: tempCategoryOrder });
+        }
+        setActiveCategoryGroup(tempCategoryOrder.length > 0 ? tempCategoryOrder[0] : 'All');
+        toast.success('Category order saved!');
+        setIsCategoryModalOpen(false);
+    }
+  };
+
+  const openCategoryModal = () => {
+    setTempCategoryOrder(categoryGroups.slice(1));
+    setIsCategoryModalOpen(true);
+  };
+
   return (
     <div className="flex h-[calc(100vh -4rem)] bg-gray-100 overflow-hidden relative">
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in flex flex-col max-h-[70vh]">
+            <div className="p-6 border-b border-gray-100 shrink-0">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Reorder Categories</h3>
+                  <p className="text-sm text-gray-500">Drag and drop to change the order of category groups.</p>
+                </div>
+                <button onClick={() => setIsCategoryModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1">
+              <div className="space-y-2">
+                {tempCategoryOrder.map((group, index) => (
+                  <div
+                    key={group}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, index)}
+                    onDragOver={(e) => handleDragOver(e, index)}
+                    onDrop={handleDrop}
+                    className="flex items-center p-3 bg-gray-50 rounded-lg border border-gray-200 cursor-grab active:cursor-grabbing select-none"
+                  >
+                    <span className="text-gray-400 mr-3 text-xl leading-none pointer-events-none" aria-hidden="true">⠿</span>
+                    <span className="font-medium text-gray-800 pointer-events-none">{group}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="p-6 border-t border-gray-100 shrink-0">
+              <button 
+                onClick={handleSaveCategoryOrder}
+                className="w-full bg-[#FF5722] text-white font-bold py-3 rounded-xl hover:bg-[#E64A19] transition"
+              >
+                Save Order
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Success Modal */}
       {showBillModal && lastOrderDetails && (
@@ -500,64 +602,83 @@ const POS: React.FC = () => {
       )}
 
       {/* Main Content (Product Grid) */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-gray-100" id="no-print">
-        {/* Search Bar */}
-       <div className="p-4 md:p-6 pb-2 space-y-4 shrink-0">
-           <div className="relative w-full max-w-md">
-             <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-             <input 
-               type="text" 
-               placeholder="Search item name or code..." 
-               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white shadow-sm"
-               value={searchTerm}
-               onChange={(e) => setSearchTerm(e.target.value)}
-             />
-           </div>
-          <div className="flex flex-wrap gap-2">
-             {categoryGroups.map(cat => (
-               <button
-                 key={cat}
-                 onClick={() => setActiveCategoryGroup(cat)}
-                 className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition shadow-sm border ${
-                   activeCategoryGroup === cat 
-                     ? 'bg-[#FF5722] text-white border-[#FF5722]' 
-                     : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-                 }`}
-               >
-                 {cat}
-               </button>
-             ))}
-           </div>
+      <div className="flex-1 flex flex-col overflow-hidden bg-gray-50 max-w-[calc(100%-400px)]" id="no-print">
+        {/* Header Section */}
+        <div className="shrink-0 bg-white p-4 border-b border-gray-200">
+          {/* Search and Toggle Row */}
+          <div className="flex items-center gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+              <input 
+                type="text" 
+                placeholder="Search item name or code..." 
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white shadow-sm"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-sm font-medium text-gray-700">Show Images</span>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={showImages} 
+                  onChange={() => setShowImages(!showImages)} 
+                  className="sr-only peer" 
+                />
+                <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-orange-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
+              </label>
+            </div>
+          </div>
+          {/* Categories Row */}
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            {categoryGroups.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategoryGroup(cat)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition shadow-sm border ${
+                  activeCategoryGroup === cat 
+                    ? 'bg-[#FF5722] text-white border-[#FF5722]' 
+                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+            <button onClick={openCategoryModal} className="p-2.5 rounded-lg bg-gray-200 text-gray-600 hover:bg-gray-300 transition shadow-sm border border-gray-200">
+              <Edit2 className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Menu Grid */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 no-scrollbar relative z-10">
+        <div className="flex-1 overflow-y-auto p-4">
           <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-             {filteredItems.map(item => {
-               const qty = cart.filter(c => c.id === item.id).reduce((sum, c) => sum + c.quantity, 0);
-               return (
-               <div 
-                 key={item.id} 
-                 onClick={() => item.variants && item.variants.length > 0 ? handleSelectVariant(item) : addToCart(item)}
-                 className="bg-white rounded-xl p-3 shadow-sm border border-gray-200 cursor-pointer hover:shadow-md hover:border-orange-300 transition flex flex-col h-full active:scale-[0.98] group relative z-10"
-               >
-                 <div className="h-12 w-10 bg-gray-50 rounded-lg overflow-hidden mb-3 relative">
+            {filteredItems.map(item => {
+              const qty = cart.filter(c => c.id === item.id).reduce((sum, c) => sum + c.quantity, 0);
+              return (
+                <div 
+                  key={item.id} 
+                  onClick={() => item.variants && item.variants.length > 1 ? handleSelectVariant(item) : addToCart(item)}
+                  className={"bg-white rounded-xl shadow-sm border border-gray-200 cursor-pointer hover:shadow-md hover:border-orange-300 transition flex flex-col h-full active:scale-[0.98] group relative z-10" + (!showImages ? " p-2" : " p-3")}
+                >
+                  <div className={"bg-gray-50 rounded-lg overflow-hidden mb-3 relative" + (!showImages ? " hidden h-0" : " h-12 w-10")}>
                     <img src={item.image}  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     {qty > 0 && (
                         <div className="absolute top-2 right-2 bg-[#FF5722] text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shadow-lg border-2 border-white">
                             {qty}
                         </div>
                     )}
-                 </div>
-                 <div className="flex-1">
+                  </div>
+                  <div className="flex-1">
                     <div className="flex justify-between items-start mb-1">
                         <h4 className="font-bold text-gray-900 text-[10px] line-clamp-1">{item.name}</h4>
-                        
                     </div>
                     <p className="text-xs text-gray-500 font-medium">₹{item.price.toFixed(2)}</p>
-                 </div>
-               </div>
-             )})}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -784,6 +905,6 @@ const POS: React.FC = () => {
       </div>
     </div>
   );
-};
+}
 
 export default POS;
