@@ -15,25 +15,26 @@ interface MenuItemCardProps {
 Modal.setAppElement('#root'); // Assuming your root element has id 'root'
 
 const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, restaurantId, onSelectVariant }) => {
-  const { addItem, items, updateQuantity } = useCart();
+  const { addItem, updateQuantity, getItemQuantity } = useCart();
   const [showVariantModal, setShowVariantModal] = useState(false);
   const [selectedVariant, setSelectedVariant] = useState<{ name: string; price: number } | null>(null);
 
-  // Find the cart item, considering variants
-  const findCartItem = (targetItem: MenuItem, variant?: { name: string; price: number }) => {
-    const cartItemId = targetItem.id + (variant?.name ? `-${variant.name}` : '');
-    return items.find(i => i.cartItemId === cartItemId);
-  };
+  const quantity = getItemQuantity(item.id);
 
-  const currentCartItem = findCartItem(item, selectedVariant || undefined);
-  const quantity = currentCartItem?.quantity || 0;
-
-  const handleAddItem = () => {
+  const addToCart = () => {
     if (item.variants && item.variants.length > 0) {
-      setShowVariantModal(true); // Open variant selection modal
+      setShowVariantModal(true);
     } else {
       addItem(item, restaurantId);
     }
+  };
+
+  const removeFromCart = () => {
+    // For items without variants, cartItemId is just item.id
+    // For items with variants, this logic might need to be more specific if we want to decrement a specific one
+    // but usually MenuItemCard for items with variants just shows "Add"
+    const cartItemId = item.id + (selectedVariant?.name ? `-${selectedVariant.name}` : '');
+    updateQuantity(cartItemId, -1);
   };
 
   const handleSelectVariantAndAddToCart = (variant: { name: string; price: number }) => {
@@ -44,11 +45,6 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, restaurantId, onSelec
       addItem({ ...item, selectedVariant: variant, price: variant.price }, restaurantId);
     }
     setShowVariantModal(false);
-  };
-
-  const handleUpdateQuantity = (change: number) => {
-    const cartItemId = item.id + (selectedVariant?.name ? `-${selectedVariant.name}` : '');
-    updateQuantity(cartItemId, change);
   };
 
   return (
@@ -90,14 +86,14 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, restaurantId, onSelec
         <div className="absolute -bottom-3 w-24 shadow-lg bg-white rounded-lg overflow-hidden border border-gray-100">
           {item.variants && item.variants.length > 0 ? (
             <button 
-              onClick={handleAddItem}
+              onClick={addToCart}
               className="w-full py-2 text-green-600 font-bold text-sm hover:bg-green-50 uppercase"
             >
               Add
             </button>
           ) : quantity === 0 ? (
             <button 
-              onClick={handleAddItem}
+              onClick={addToCart}
               className="w-full py-2 text-green-600 font-bold text-sm hover:bg-green-50 uppercase"
             >
               Add
@@ -105,14 +101,14 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, restaurantId, onSelec
           ) : (
             <div className="flex items-center justify-between bg-white w-full">
               <button 
-                onClick={() => handleUpdateQuantity(-1)}
+                onClick={removeFromCart}
                 className="px-3 py-2 text-gray-500 hover:text-green-600 hover:bg-green-50 font-bold text-lg"
               >
                 -
               </button>
               <span className="text-sm font-bold text-green-700">{quantity}</span>
               <button 
-                onClick={() => handleUpdateQuantity(1)}
+                onClick={addToCart}
                 className="px-3 py-2 text-green-600 hover:bg-green-50 font-bold text-lg"
               >
                 +
