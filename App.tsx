@@ -63,6 +63,7 @@ const App: React.FC = () => {
               <Routes>
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/restaurant/:slug" element={<RestaurantFrontPage />} />
+                <Route path="/restaurant/:slug/menu" element={<RestaurantFrontPage isMenuOnly={true} />} />
                 {/* Fallback for unknown customer routes */}
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
