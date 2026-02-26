@@ -32,6 +32,7 @@ export interface ThemeSettings {
   heroTitle?: string;
   heroSubtitle?: string;
   heroImage?: string; // Overrides banner if specific for hero
+  aboutText?: string; // New field for About Section
   primaryColor?: string;
   socialMedia?: SocialLinks;
 }
@@ -75,6 +76,7 @@ export interface Restaurant {
   paymentQrLink?: string; // New field for custom payment QR link
   selectedPrinterSize?: string;
   printerSizes?: string[];
+  homeViewMode?: 'Landing Page' | 'Default List';
 }
 
 export interface CartItem extends MenuItem {
