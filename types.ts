@@ -141,6 +141,7 @@ export interface LastOrderDetails {
   deliveryCharge?: number;
   restaurantIds?: string[];
   paymentQrLink?: string; // New field for the payment QR link
+  restaurantId?: string;
 }
 
 export interface Expense {
