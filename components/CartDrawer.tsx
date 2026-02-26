@@ -68,17 +68,10 @@ const CartDrawer: React.FC<CartDrawerProps> = () => {
   const deliveryFee = orderType === 'Delivery' ? defaultDeliveryCharge : 0;
   
   // Explicitly calculate split taxes
-  let gstAmount = 0;
-  let serviceAmount = 0;
-
-  if (taxSettings.applyTax) {
-      if (taxSettings.gstPercentage > 0) {
-          gstAmount = totalPrice * (taxSettings.gstPercentage / 100);
-      }
-      if (taxSettings.serviceChargePercentage > 0) {
-          serviceAmount = totalPrice * (taxSettings.serviceChargePercentage / 100);
-      }
-  }
+  const gstPercentage = taxSettings?.gstPercentage || 0;
+  const gstAmount = totalPrice * (gstPercentage / 100);
+  const serviceChargePercentage = taxSettings?.serviceChargePercentage || 0;
+  const serviceAmount = totalPrice * (serviceChargePercentage / 100);
   
   const finalTotal = totalPrice + gstAmount + serviceAmount + deliveryFee;
 
@@ -420,8 +413,8 @@ const CartDrawer: React.FC<CartDrawerProps> = () => {
           </div>
 
           {/* 2. Content Area (Scrollable) */}
-          <div className="flex-1 overflow-y-auto no-scrollbar bg-gray-50/30 relative">
-            <div className="p-6 space-y-4">
+          <div className="flex-1 overflow-y-auto no-scrollbar bg-gray-50/30 relative flex flex-col">
+            <div className="p-6 space-y-4 flex-1">
               {items.length === 0 ? (
                 <div className="min-h-[60vh] flex flex-col items-center justify-center text-center space-y-4 opacity-60">
                   <div className="bg-gray-50 p-6 rounded-full">
@@ -538,18 +531,14 @@ const CartDrawer: React.FC<CartDrawerProps> = () => {
                             <span>₹{deliveryFee.toFixed(2)}</span>
                         </div>
                     )}
-                    {gstAmount > 0 && (
-                        <div className="flex justify-between text-xs text-gray-500">
-                            <span>GST ({taxSettings.gstPercentage}%)</span>
-                            <span>₹{gstAmount.toFixed(2)}</span>
-                        </div>
-                    )}
-                    {serviceAmount > 0 && (
-                        <div className="flex justify-between text-xs text-gray-500">
-                            <span>Service Charge ({taxSettings.serviceChargePercentage}%)</span>
-                            <span>₹{serviceAmount.toFixed(2)}</span>
-                        </div>
-                    )}
+                    <div className="flex justify-between text-xs text-gray-500">
+                        <span>GST ({gstPercentage}%)</span>
+                        <span>₹{gstAmount.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-500">
+                        <span>Service Charge ({serviceChargePercentage}%)</span>
+                        <span>₹{serviceAmount.toFixed(2)}</span>
+                    </div>
                 </div>
 
                 <div className="flex justify-between items-end mb-4 pt-2 border-t border-gray-100">
