@@ -111,19 +111,19 @@ const POS: React.FC = () => {
 
   // Derive unique category groups
   const categoryGroups = useMemo(() => {
-    if (!restaurantData?.categoryGroupOrder) {
+    if (!restaurantData?.categoryOrder) {
         const groups = Array.from(new Set(menuItems.map(item => item.categoryGroup).filter(Boolean) as string[]));
         return ['All', ...groups];
     }
-    const orderedGroups = restaurantData.categoryGroupOrder.filter(group => 
+    const orderedGroups = restaurantData?.categoryOrder?.filter(group => 
         menuItems.some(item => item.categoryGroup === group)
     );
     const newGroups = menuItems
         .map(item => item.categoryGroup)
-        .filter((group): group is string => !!group && !orderedGroups.includes(group));
+        .filter((group): group is string => !!group && !orderedGroups?.includes(group));
     const uniqueNewGroups = [...new Set(newGroups)];
     return ['All', ...orderedGroups, ...uniqueNewGroups];
-}, [menuItems, restaurantData?.categoryGroupOrder]);
+}, [menuItems, restaurantData?.categoryOrder]);
 
   useEffect(() => {
     let result = menuItems;
@@ -466,9 +466,9 @@ const POS: React.FC = () => {
   const handleSaveCategoryOrder = () => {
     if (restaurantId) {
         const restaurantRef = doc(db, 'restaurants', restaurantId);
-        updateDoc(restaurantRef, { categoryGroupOrder: tempCategoryOrder });
+        updateDoc(restaurantRef, { categoryOrder: tempCategoryOrder });
         if (restaurantData) {
-            setRestaurantData({ ...restaurantData, categoryGroupOrder: tempCategoryOrder });
+            setRestaurantData({ ...restaurantData, categoryOrder: tempCategoryOrder });
         }
         setActiveCategoryGroup(tempCategoryOrder.length > 0 ? tempCategoryOrder[0] : 'All');
         toast.success('Category order saved!');
