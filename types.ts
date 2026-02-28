@@ -1,4 +1,4 @@
-export type CategoryType = 'Veg' | 'Non-Veg' | 'Drinks' | 'Dessert';
+export type CategoryType = 'string';
 
 export interface Variant {
   size: string;
@@ -22,19 +22,47 @@ export interface MenuItem {
   available?: boolean;
 }
 
+export interface Feature {
+  title: string;
+  description: string;
+  icon?: string;
+}
+
+
 export interface ThemeSettings {
   headerColor?: string;
   footerColor?: string;
   headerText?: string;
   footerText?: string;
   logoUrl?: string;
-  // New CMS Fields
-  heroTitle?: string;
-  heroSubtitle?: string;
-  heroImage?: string; // Overrides banner if specific for hero
-  aboutText?: string; // New field for About Section
+  // CMS Fields for Landing Page
+  heroImage?: string; 
+  aboutTitle?: string;
+  aboutText?: string; 
   primaryColor?: string;
+  primaryTextColor?: string;
+  heroBgColor?: string;
+  landingHeroTitle?: string;
+  landingHeroSub?: string;
+  features?: Feature[];
   socialMedia?: SocialLinks;
+}
+export interface RestaurantSettings {
+  openingHours?: string;
+  deliveryTime?: string;
+  defaultDeliveryCharge?: number;
+  whatsappNumber?: string;
+  upiId?: string;
+  paymentQrLink?: string;
+  orderIdPrefix?: string;
+  nextOrderNumber?: number;
+  receiptFooter?: string;
+  selectedPrinterSize?: string;
+  printerSizes?: string[];
+  theme?: ThemeSettings;
+  taxSettings?: TaxSettings;
+  socialMedia?: SocialLinks;
+  homeViewMode?: 'Landing Page' | 'Default List';
 }
 
 export interface TaxSettings {
@@ -48,6 +76,13 @@ export interface SocialLinks {
   facebook?: string;
   twitter?: string;
   linkedin?: string;
+}
+export interface NotificationSettings {
+  pushEnabled: boolean;
+  telegramEnabled: boolean;
+  telegramToken: string;
+  telegramChatId: string;
+  alertSoundUrl: string;
 }
 
 export interface Restaurant {
@@ -77,6 +112,9 @@ export interface Restaurant {
   selectedPrinterSize?: string;
   printerSizes?: string[];
   homeViewMode?: 'Landing Page' | 'Default List';
+  categoryOrder?: string[];
+  notificationSettings?: NotificationSettings;
+  fcmTokens?: string[];
 }
 
 export interface CartItem extends MenuItem {
