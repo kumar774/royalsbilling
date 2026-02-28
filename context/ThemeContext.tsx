@@ -13,6 +13,18 @@ const defaultTheme: ThemeSettings = {
   headerText: 'CraveWave',
   footerText: '© 2024 CraveWave Technologies Inc.',
   logoUrl: '',
+  primaryColor: '#ea580c',
+  primaryTextColor: '#111827',
+  heroBgColor: '#f9fafb',
+  landingHeroTitle: 'Professional Billing & Management Software',
+  landingHeroSub: 'The all-in-one solution for modern restaurants to manage orders, inventory, and growth.',
+  aboutTitle: 'Designed for Modern Hospitality',
+  aboutText: '',
+  features: [
+    { title: 'Fast & Reliable', description: 'Experience lightning fast performance and 99.9% uptime for your business operations.' },
+    { title: 'Secure Payments', description: 'Industry-standard encryption and secure payment gateways to protect your transactions.' },
+    { title: '24/7 Support', description: 'Our dedicated support team is always available to help you with any queries or issues.' }
+  ],
   socialMedia: {
     instagram: '',
     facebook: '',
