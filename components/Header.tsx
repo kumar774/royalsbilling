@@ -4,6 +4,7 @@ import { useCart } from '../context/CartContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useRestaurants } from '../context/RestaurantContext';
+import { Restaurant } from '../types';
 
 const Header: React.FC = () => {
   const { totalItems, toggleCart } = useCart();
@@ -46,15 +47,33 @@ const Header: React.FC = () => {
           {/* Logo & Location */}
           <div className="flex items-center space-x-6">
             <Link to="/" className="flex items-center space-x-2 group">
-              {theme.logoUrl ? (
-                <img src={theme.logoUrl} alt="Logo" className="h-10 w-10 object-contain rounded" />
+              {selectedRestaurant ? (
+                selectedRestaurant.logo ? (
+                  <img 
+                    src={selectedRestaurant.logo} 
+                    alt={selectedRestaurant.name} 
+                    className="h-10 w-10 object-contain rounded" 
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="bg-orange-600 p-2 rounded-lg group-hover:bg-orange-700 transition-colors">
+                     <UtensilsCrossed className="h-6 w-6 text-white" />
+                  </div>
+                )
+              ) : theme?.logoUrl ? (
+                <img 
+                  src={theme.logoUrl} 
+                  alt="Logo" 
+                  className="h-10 w-10 object-contain rounded" 
+                  referrerPolicy="no-referrer"
+                />
               ) : (
                 <div className="bg-orange-600 p-2 rounded-lg group-hover:bg-orange-700 transition-colors">
                    <UtensilsCrossed className="h-6 w-6 text-white" />
                 </div>
               )}
               <span className="text-xl font-bold text-gray-900 tracking-tight">
-                {theme.headerText || 'CraveWave'}
+                {selectedRestaurant ? selectedRestaurant.name : (theme?.headerText || 'CraveWave')}
               </span>
             </Link>
             
