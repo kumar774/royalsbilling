@@ -31,14 +31,14 @@ const RestaurantFrontPage: React.FC<RestaurantFrontPageProps> = () => {
     if (!restaurant?.menu) return ['All'];
     const menuCategories = Array.from(new Set(restaurant.menu.map(item => item.categoryGroup).filter(Boolean) as string[]));
     
-    if (!restaurant.categoryOrder) {
-        return ['All', ...menuCategories];
+    if (!restaurant?.categoryOrder) {
+        return ['All', ...menuCategories.sort()];
     }
 
-    const orderedGroups = restaurant.categoryOrder.filter(group => 
+    const orderedGroups = restaurant?.categoryOrder?.filter(group => 
         menuCategories.includes(group)
     );
-    const remainingGroups = menuCategories.filter(group => !orderedGroups.includes(group));
+    const remainingGroups = menuCategories.filter(group => !orderedGroups?.includes(group)).sort();
     
     return ['All', ...orderedGroups, ...remainingGroups];
   }, [restaurant?.menu, restaurant?.categoryOrder]);
@@ -145,6 +145,17 @@ const RestaurantFrontPage: React.FC<RestaurantFrontPageProps> = () => {
 
   // Handle Error State (e.g. Deleted while viewing or invalid slug)
   if (!slug && !restaurantFromContext) {
+    const showLandingPage = restaurants.some(r => r.homeViewMode === 'Landing Page');
+
+    if (showLandingPage) {
+        const LandingPage = React.lazy(() => import('../components/LandingPage'));
+        return (
+            <React.Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
+                <LandingPage />
+            </React.Suspense>
+        );
+    }
+
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-6">Our Restaurants</h1>
@@ -243,8 +254,8 @@ const RestaurantFrontPage: React.FC<RestaurantFrontPageProps> = () => {
       {/* Sticky Menu Navigation */}
       <div className="sticky top-0 z-0 bg-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-           <div className="flex items-center justify-between py-4 overflow-x-auto no-scrollbar gap-4">
-              <div className="flex space-x-2 md:space-x-8 min-w-max">
+           <div className="flex items-center justify-between py-4 gap-4">
+              <div className="flex flex-wrap gap-2 md:gap-8">
                  {categoryGroups.map((cat) => (
                     <button
                       key={cat}
@@ -253,7 +264,7 @@ const RestaurantFrontPage: React.FC<RestaurantFrontPageProps> = () => {
                           color: activeCategoryGroup === cat ? primaryColor : undefined,
                           borderColor: activeCategoryGroup === cat ? primaryColor : undefined
                       }}
-                      className={`text-sm font-medium pb-2 border-b-2 transition-colors whitespace-nowrap ${
+                      className={`text-sm font-medium pb-2 border-b-2 transition-colors ${
                         activeCategoryGroup === cat 
                         ? '' // Style applied via inline style for dynamic color
                         : 'border-transparent text-gray-500 hover:text-gray-900'
