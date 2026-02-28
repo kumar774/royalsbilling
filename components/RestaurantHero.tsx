@@ -15,9 +15,10 @@ const RestaurantHero: React.FC<RestaurantHeroProps> = ({ restaurant }) => {
       {/* Banner Image */}
       <div className="h-48 md:h-64 w-full relative overflow-hidden bg-gray-200">
         <img 
-          src={theme.heroImage || restaurant.bannerImage} 
+          src={restaurant.bannerImage} 
           alt={restaurant.name} 
           className="w-full h-full object-cover object-center"
+          referrerPolicy="no-referrer"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
       </div>
@@ -28,16 +29,16 @@ const RestaurantHero: React.FC<RestaurantHeroProps> = ({ restaurant }) => {
           <div className="flex flex-col md:flex-row gap-6 items-start">
              {/* Logo */}
              <div className="h-24 w-24 rounded-lg overflow-hidden border-4 border-white shadow-sm flex-shrink-0 bg-white">
-                <img src={restaurant.logo} alt="logo" className="w-full h-full object-cover" />
+                <img src={restaurant.logo} alt="logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
              </div>
 
              {/* Text Info */}
              <div>
                <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-                   {theme.heroTitle || restaurant.name}
+                   {restaurant.name}
                </h1>
                <p className="text-gray-500 mt-1 text-lg">
-                   {theme.heroSubtitle || restaurant.cuisine.join(', ')}
+                   {restaurant.cuisine.join(', ')}
                </p>
                
                <div className="flex items-center space-x-4 mt-4 text-sm">
