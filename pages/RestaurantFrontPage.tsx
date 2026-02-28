@@ -29,9 +29,19 @@ const RestaurantFrontPage: React.FC<RestaurantFrontPageProps> = () => {
   // Derive unique category groups
   const categoryGroups = useMemo(() => {
     if (!restaurant?.menu) return ['All'];
-    const groups = Array.from(new Set(restaurant.menu.map(item => item.categoryGroup).filter(Boolean) as string[]));
-    return ['All', ...groups];
-  }, [restaurant?.menu]);
+    const menuCategories = Array.from(new Set(restaurant.menu.map(item => item.categoryGroup).filter(Boolean) as string[]));
+    
+    if (!restaurant.categoryOrder) {
+        return ['All', ...menuCategories];
+    }
+
+    const orderedGroups = restaurant.categoryOrder.filter(group => 
+        menuCategories.includes(group)
+    );
+    const remainingGroups = menuCategories.filter(group => !orderedGroups.includes(group));
+    
+    return ['All', ...orderedGroups, ...remainingGroups];
+  }, [restaurant?.menu, restaurant?.categoryOrder]);
 
   const filteredMenu = useMemo(() => {
     if (!restaurant?.menu) return [];
@@ -216,13 +226,13 @@ const RestaurantFrontPage: React.FC<RestaurantFrontPageProps> = () => {
 
   const primaryColor = restaurant.theme?.primaryColor || '#ea580c';
 
-  // Group menu items by categorySpecific
+  // Group menu items by category
   const groupedMenu = filteredMenu.reduce((acc, item) => {
-    const categorySpecific = item.categorySpecific || 'Uncategorized';
-    if (!acc[categorySpecific]) {
-      acc[categorySpecific] = [];
+    const categoryGroup = item.categoryGroup || 'Uncategorized';
+    if (!acc[categoryGroup]) {
+      acc[categoryGroup] = [];
     }
-    acc[categorySpecific].push(item);
+    acc[categoryGroup].push(item);
     return acc;
   }, {} as Record<string, MenuItem[]>);
 
@@ -278,11 +288,11 @@ const RestaurantFrontPage: React.FC<RestaurantFrontPageProps> = () => {
         </div>
         
         {filteredMenu.length > 0 ? (
-            Object.keys(groupedMenu).sort().map(categorySpecific => (
-                <div key={categorySpecific} className="mb-8">
-                    <h3 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2 border-gray-200">{categorySpecific}</h3>
+            categoryGroups.filter(cat => cat !== 'All' && groupedMenu[cat]).map(categoryGroup => (
+                <div key={categoryGroup} className="mb-8">
+                    <h3 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2 border-gray-200">{categoryGroup}</h3>
                     <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
-                        {groupedMenu[categorySpecific].map(item => (
+                        {groupedMenu[categoryGroup].map(item => (
                             <div key={item.id} className="h-full">
                                 <MenuItemCard item={item} restaurantId={restaurant.id} />
                             </div>
