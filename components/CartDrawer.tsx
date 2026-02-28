@@ -213,6 +213,20 @@ const CartDrawer: React.FC<CartDrawerProps> = () => {
     }
   };
 
+  const sanitizePhoneNumber = (phone: string): string => {
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.length === 10) {
+      return '91' + cleaned;
+    }
+    if (cleaned.length === 12 && cleaned.startsWith('91')) {
+      return cleaned;
+    }
+    if (cleaned.length > 10) {
+      return '91' + cleaned.slice(-10);
+    }
+    return cleaned;
+  };
+
   const handleWhatsAppBill = async () => {
     if (!lastOrderData) return;
     const targetRestaurantId = lastOrderData.restaurantId || restaurantId;
@@ -258,8 +272,8 @@ const CartDrawer: React.FC<CartDrawerProps> = () => {
                 if (restaurantData.contact) message += `Tel: ${restaurantData.contact}\n`;
             }
 
-            const phoneForWhatsapp = customerPhone || '';
-            const whatsappUrl = `https://wa.me/${phoneForWhatsapp.replace(/\D/g,'')}?text=${encodeURIComponent(message)}`;
+            const sanitizedPhone = sanitizePhoneNumber(customerPhone || '');
+            const whatsappUrl = `https://api.whatsapp.com/send?phone=${sanitizedPhone}&text=${encodeURIComponent(message)}`;
             window.open(whatsappUrl, '_blank');
         }
     } catch (err) {
