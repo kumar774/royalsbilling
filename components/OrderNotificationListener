@@ -1,0 +1,152 @@
+import React, { useEffect, useRef } from 'react';
+import { collection, query, onSnapshot, where, Timestamp } from 'firebase/firestore';
+import { db, requestForToken, onMessage, messaging } from '../firebase/config';
+import { useRestaurants } from '../context/RestaurantContext';
+import { Order } from '../types';
+
+const OrderNotificationListener: React.FC = () => {
+  const { restaurants } = useRestaurants();
+  const isFirstRun = useRef(true);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    if (restaurants.length === 0) return;
+
+    // Request FCM Token for each restaurant that has push enabled
+    restaurants.forEach(restaurant => {
+      if (restaurant.notificationSettings?.pushEnabled) {
+        requestForToken(restaurant.id);
+      }
+    });
+
+    // Foreground Message Listener
+    const unsubscribeOnMessage = onMessage(messaging, (payload) => {
+      console.log('Foreground message received:', payload);
+      
+      // Find the restaurant this message might belong to (if we can identify it)
+      // For now, we'll just play the sound of the first restaurant that has a sound set
+      // or a default sound if multiple restaurants are managed.
+      const restaurantWithSound = restaurants.find(r => r.notificationSettings?.alertSoundUrl);
+      if (restaurantWithSound?.notificationSettings?.alertSoundUrl) {
+        if (!audioRef.current) {
+          audioRef.current = new Audio(restaurantWithSound.notificationSettings.alertSoundUrl);
+        } else {
+          audioRef.current.src = restaurantWithSound.notificationSettings.alertSoundUrl;
+        }
+        audioRef.current.play().catch(err => console.error('Audio play error:', err));
+      }
+
+      // Show foreground notification
+      if (payload.notification) {
+        new Notification(payload.notification.title || 'New Notification', {
+          body: payload.notification.body,
+          icon: payload.notification.image || '/favicon.ico'
+        });
+      }
+    });
+
+    // Background Message Listener (from Service Worker)
+    const handleServiceWorkerMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'BACKGROUND_NOTIFICATION') {
+        console.log('Background message received from SW:', event.data.payload);
+        const restaurantWithSound = restaurants.find(r => r.notificationSettings?.alertSoundUrl);
+        if (restaurantWithSound?.notificationSettings?.alertSoundUrl) {
+          if (!audioRef.current) {
+            audioRef.current = new Audio(restaurantWithSound.notificationSettings.alertSoundUrl);
+          } else {
+            audioRef.current.src = restaurantWithSound.notificationSettings.alertSoundUrl;
+          }
+          audioRef.current.play().catch(err => console.error('Audio play error:', err));
+        }
+      }
+    };
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
+    }
+
+    // Listen to all orders for all restaurants managed by this user
+    const restaurantIds = restaurants.map(r => r.id);
+    if (restaurantIds.length === 0) return;
+
+    const startTime = Timestamp.now();
+    const q = query(
+      collection(db, 'orders'),
+      where('createdAt', '>=', startTime) // Only new orders
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (isFirstRun.current) {
+        isFirstRun.current = false;
+        return;
+      }
+
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          const order = { id: change.doc.id, ...change.doc.data() } as Order;
+          
+          // Filter by restaurantId on the client side to avoid composite index requirement
+          const restaurant = restaurants.find(r => r.id === order.restaurantId);
+          
+          if (restaurant && restaurant.notificationSettings) {
+            const settings = restaurant.notificationSettings;
+
+            // 1. Browser Push Notification (Fallback for non-FCM or manual trigger)
+            // Note: If FCM is working, we might get double notifications if we also trigger here.
+            // But the user asked for this Firestore listener logic before.
+            // I'll keep it but maybe FCM will handle the "real" push.
+            if (settings.pushEnabled && Notification.permission === 'granted') {
+              new Notification(`New Order: ${restaurant.name}`, {
+                body: `Order #${order.formattedId || order.id.slice(-6)} - ₹${order.total.toFixed(2)}`,
+                icon: restaurant.logo || '/favicon.ico'
+              });
+            }
+
+            // 2. Telegram Alert
+            if (settings.telegramEnabled && settings.telegramToken && settings.telegramChatId) {
+              const message = `🔔 *New Order Received!*\n\n` +
+                `*Restaurant:* ${restaurant.name}\n` +
+                `*Order ID:* ${order.formattedId || order.id}\n` +
+                `*Amount:* ₹${order.total.toFixed(2)}\n` +
+                `*Type:* ${order.orderType}\n` +
+                `*Customer:* ${order.customerName || 'Guest'}\n\n` +
+                `Check dashboard for details.`;
+
+              fetch(`https://api.telegram.org/bot${settings.telegramToken}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  chat_id: settings.telegramChatId,
+                  text: message,
+                  parse_mode: 'Markdown'
+                })
+              }).catch(err => console.error('Telegram error:', err));
+            }
+
+            // 3. Custom Sound
+            if (settings.alertSoundUrl) {
+              if (!audioRef.current) {
+                audioRef.current = new Audio(settings.alertSoundUrl);
+              } else {
+                audioRef.current.src = settings.alertSoundUrl;
+              }
+              audioRef.current.play().catch(err => console.error('Audio play error:', err));
+            }
+          }
+        }
+      });
+    });
+
+    return () => {
+      unsubscribe();
+      unsubscribeOnMessage();
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
+      }
+    };
+  }, [restaurants]);
+
+  return null;
+};
+
+export default OrderNotificationListener;
