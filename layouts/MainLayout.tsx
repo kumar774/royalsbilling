@@ -3,7 +3,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import CartDrawer from '../components/CartDrawer';
 import { CartProvider } from '../context/CartContext';
-import { ThemeProvider } from '../context/ThemeContext';
+import { useTheme } from '../context/ThemeContext';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -19,17 +19,25 @@ import { QRCodeSVG } from 'qrcode.react';
 Modal.setAppElement('#root'); // Set app element for react-modal
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children, setShowQrModal, setQrCodeValue, showQrModal, qrCodeValue }) => {
+  const { theme } = useTheme();
+
   return (
-    <ThemeProvider>
-      <CartProvider>
-        <div className="flex flex-col min-h-screen bg-gray-50 font-sans text-gray-900">
-          <Header />
-          <main className="flex-grow">
-            {children}
-          </main>
-          <Footer />
-          <CartDrawer setShowQrModal={setShowQrModal} setQrCodeValue={setQrCodeValue} />
-        </div>
+    <CartProvider>
+      <div 
+        className="flex flex-col min-h-screen bg-gray-50 font-sans text-gray-900"
+        style={{ 
+          '--primary-color': theme.primaryColor || '#ea580c',
+          '--footer-color': theme.footerColor || '#111827',
+          '--header-color': theme.headerColor || '#ffffff'
+        } as React.CSSProperties}
+      >
+        <Header />
+        <main className="flex-grow">
+          {children}
+        </main>
+        <Footer />
+        <CartDrawer setShowQrModal={setShowQrModal} setQrCodeValue={setQrCodeValue} />
+      </div>
 
         {/* QR Code Modal (Lifted from RestaurantFrontPage) */}
         <Modal
@@ -56,7 +64,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, setShowQrModal, setQr
           </div>
         </Modal>
       </CartProvider>
-    </ThemeProvider>
   );
 };
 
