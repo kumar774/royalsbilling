@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { db, requestForToken } from '../firebase/config';
 import { Restaurant, ThemeSettings, TaxSettings, SocialLinks } from '../types';
-import { Save, Loader2, Clock, Palette, QrCode, Layout, Smartphone, Bike, Share2, Printer } from 'lucide-react';
+import { Save, Loader2, Clock, Palette, QrCode, Layout, Smartphone, Bike, Share2, Printer, Bell, Volume2, Send } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { NotificationSettings } from '../types';
 
 const Settings: React.FC = () => {
   const { restaurantId } = useParams<{ restaurantId: string }>();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'operational' | 'branding'>('operational');
+  const [activeTab, setActiveTab] = useState<'operational' | 'branding' | 'notifications'>('operational');
   
   const [formData, setFormData] = useState({
     openingHours: '',
@@ -31,11 +32,19 @@ const Settings: React.FC = () => {
       headerText: 'CraveWave',
       footerText: '© 2024 CraveWave Technologies Inc.',
       logoUrl: '',
-      heroTitle: 'Delicious Food Delivered',
-      heroSubtitle: 'Order from the best local menu instantly.',
       heroImage: '',
+      aboutTitle: '',
       aboutText: '',
-      primaryColor: '#ea580c' // Default Orange-600
+      primaryColor: '#ea580c', // Default Orange-600
+      primaryTextColor: '#111827',
+      heroBgColor: '#f9fafb',
+      landingHeroTitle: '',
+      landingHeroSub: '',
+      features: [
+        { title: '', description: '' },
+        { title: '', description: '' },
+        { title: '', description: '' }
+      ]
     } as ThemeSettings,
     homeViewMode: 'Default List',
     // Tax Settings (Simplified access for this view)
@@ -49,7 +58,14 @@ const Settings: React.FC = () => {
         facebook: '',
         twitter: '',
         linkedin: ''
-    } as SocialLinks
+    } as SocialLinks,
+    notificationSettings: {
+      pushEnabled: false,
+      telegramEnabled: false,
+      telegramToken: '',
+      telegramChatId: '',
+      alertSoundUrl: ''
+    } as NotificationSettings
   });
 
   useEffect(() => {
@@ -78,11 +94,19 @@ const Settings: React.FC = () => {
               headerText: data.theme?.headerText || data.name || 'CraveWave',
               footerText: data.theme?.footerText || '© 2024 CraveWave Technologies Inc.',
               logoUrl: data.theme?.logoUrl || data.logo || '',
-              heroTitle: data.theme?.heroTitle || `Welcome to ${data.name}`,
-              heroSubtitle: data.theme?.heroSubtitle || 'Experience the best flavors in town.',
               heroImage: data.theme?.heroImage || data.bannerImage || '',
+              aboutTitle: data.theme?.aboutTitle || 'About Our Software',
               aboutText: data.theme?.aboutText || '',
-              primaryColor: data.theme?.primaryColor || '#ea580c'
+              primaryColor: data.theme?.primaryColor || '#ea580c',
+              primaryTextColor: data.theme?.primaryTextColor || '#111827',
+              heroBgColor: data.theme?.heroBgColor || '#f9fafb',
+              landingHeroTitle: data.theme?.landingHeroTitle || 'Professional Billing Software',
+              landingHeroSub: data.theme?.landingHeroSub || 'Manage your restaurant operations with ease.',
+              features: data.theme?.features || [
+                { title: '', description: '' },
+                { title: '', description: '' },
+                { title: '', description: '' }
+              ]
             },
             homeViewMode: data.homeViewMode || 'Default List',
             taxSettings: {
@@ -95,6 +119,13 @@ const Settings: React.FC = () => {
                 facebook: data.socialMedia?.facebook || '',
                 twitter: data.socialMedia?.twitter || '',
                 linkedin: data.socialMedia?.linkedin || ''
+            },
+            notificationSettings: {
+                pushEnabled: data.notificationSettings?.pushEnabled || false,
+                telegramEnabled: data.notificationSettings?.telegramEnabled || false,
+                telegramToken: data.notificationSettings?.telegramToken || '',
+                telegramChatId: data.notificationSettings?.telegramChatId || '',
+                alertSoundUrl: data.notificationSettings?.alertSoundUrl || ''
             }
         });
       }
@@ -123,8 +154,9 @@ const Settings: React.FC = () => {
 
   if (loading) return <div className="p-8">Loading settings...</div>;
 
-  const TabButton = ({ id, label, icon: Icon }: { id: 'operational' | 'branding', label: string, icon: React.ElementType }) => (
+  const TabButton = ({ id, label, icon: Icon }: { id: 'operational' | 'branding' | 'notifications', label: string, icon: React.ElementType }) => (
     <button
+      type="button"
       onClick={() => setActiveTab(id)}
       className={`flex items-center px-6 py-3 border-b-2 font-medium text-sm transition-colors ${
         activeTab === id 
@@ -136,6 +168,67 @@ const Settings: React.FC = () => {
       {label}
     </button>
   );
+
+  const testPushNotification = async () => {
+    if (!("Notification" in window)) {
+      toast.error("This browser does not support desktop notification");
+      return;
+    }
+
+    if (Notification.permission === "granted") {
+      // Get FCM Token for testing
+      if (restaurantId) {
+        const token = await requestForToken(restaurantId);
+        if (token) {
+          console.log('Test FCM Token:', token);
+          toast.success("FCM Token generated and saved!");
+        }
+      }
+
+      new Notification("Test Notification", {
+        body: "This is a test notification from CraveWave.",
+        icon: formData.theme.logoUrl || "/favicon.ico"
+      });
+      toast.success("Test notification sent!");
+    } else if (Notification.permission !== "denied") {
+      Notification.requestPermission().then(async (permission) => {
+        if (permission === "granted") {
+          if (restaurantId) {
+            await requestForToken(restaurantId);
+          }
+          new Notification("Test Notification", {
+            body: "This is a test notification from CraveWave.",
+            icon: formData.theme.logoUrl || "/favicon.ico"
+          });
+          toast.success("Test notification sent!");
+        }
+      });
+    } else {
+      toast.error("Notification permission denied. Please enable it in browser settings.");
+    }
+  };
+
+  const handleSoundUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 1024 * 1024) { // 1MB limit
+        toast.error("File size too large. Please upload a sound under 1MB.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData({
+          ...formData,
+          notificationSettings: {
+            ...formData.notificationSettings,
+            alertSoundUrl: reader.result as string
+          }
+        });
+        toast.success("Sound uploaded successfully!");
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   return (
     <div className="max-w-4xl">
@@ -149,6 +242,7 @@ const Settings: React.FC = () => {
         <div className="flex border-b border-gray-200">
             <TabButton id="operational" label="Operations & Billing" icon={QrCode} />
             <TabButton id="branding" label="Front-Page CMS" icon={Layout} />
+            <TabButton id="notifications" label="Notifications" icon={Bell} />
         </div>
 
         <form onSubmit={handleSave} className="p-6">
@@ -220,8 +314,8 @@ const Settings: React.FC = () => {
                                 <input 
                                     type="number" 
                                     className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
-                                    value={formData.nextOrderNumber}
-                                    onChange={(e) => setFormData({...formData, nextOrderNumber: parseInt(e.target.value) || 1})}
+                                    value={isNaN(formData.nextOrderNumber) ? '' : formData.nextOrderNumber}
+                                    onChange={(e) => setFormData({...formData, nextOrderNumber: parseInt(e.target.value) || 0})}
                                     placeholder="1"
                                 />
                                 <p className="text-xs text-gray-500 mt-1">The number for the next order.</p>
@@ -279,8 +373,8 @@ const Settings: React.FC = () => {
                                 <input 
                                     type="number" 
                                     className="w-full rounded-lg border-gray-300 border pl-9 pr-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
-                                    value={formData.defaultDeliveryCharge}
-                                    onChange={(e) => setFormData({...formData, defaultDeliveryCharge: parseFloat(e.target.value)})}
+                                    value={isNaN(formData.defaultDeliveryCharge) ? '' : formData.defaultDeliveryCharge}
+                                    onChange={(e) => setFormData({...formData, defaultDeliveryCharge: parseFloat(e.target.value) || 0})}
                                     placeholder="0"
                                 />
                             </div>
@@ -307,8 +401,8 @@ const Settings: React.FC = () => {
                                 <input 
                                     type="number" 
                                     className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm"
-                                    value={formData.taxSettings.gstPercentage}
-                                    onChange={(e) => setFormData({...formData, taxSettings: {...formData.taxSettings, gstPercentage: parseFloat(e.target.value)}})}
+                                    value={isNaN(formData.taxSettings.gstPercentage) ? '' : formData.taxSettings.gstPercentage}
+                                    onChange={(e) => setFormData({...formData, taxSettings: {...formData.taxSettings, gstPercentage: parseFloat(e.target.value) || 0}})}
                                 />
                             </div>
                             <div>
@@ -316,8 +410,8 @@ const Settings: React.FC = () => {
                                 <input 
                                     type="number" 
                                     className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm"
-                                    value={formData.taxSettings.serviceChargePercentage}
-                                    onChange={(e) => setFormData({...formData, taxSettings: {...formData.taxSettings, serviceChargePercentage: parseFloat(e.target.value)}})}
+                                    value={isNaN(formData.taxSettings.serviceChargePercentage) ? '' : formData.taxSettings.serviceChargePercentage}
+                                    onChange={(e) => setFormData({...formData, taxSettings: {...formData.taxSettings, serviceChargePercentage: parseFloat(e.target.value) || 0}})}
                                 />
                             </div>
                         </div>
@@ -328,53 +422,6 @@ const Settings: React.FC = () => {
             {/* Branding Tab */}
             {activeTab === 'branding' && (
                 <div className="space-y-6 animate-fade-in">
-                    <div>
-                        <h4 className="font-bold text-gray-900 mb-4 flex items-center">
-                            <Layout className="h-4 w-4 mr-2 text-gray-500" /> Hero Section (Front Page)
-                        </h4>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Hero Title</label>
-                                <input 
-                                    type="text" 
-                                    className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
-                                    value={formData.theme.heroTitle}
-                                    onChange={(e) => setFormData({...formData, theme: {...formData.theme, heroTitle: e.target.value}})}
-                                    placeholder="e.g. Delicious Food Delivered"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Hero Subtitle</label>
-                                <textarea 
-                                    className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
-                                    value={formData.theme.heroSubtitle}
-                                    onChange={(e) => setFormData({...formData, theme: {...formData.theme, heroSubtitle: e.target.value}})}
-                                    rows={2}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Hero Image URL</label>
-                                <input 
-                                    type="text" 
-                                    className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
-                                    value={formData.theme.heroImage}
-                                    onChange={(e) => setFormData({...formData, theme: {...formData.theme, heroImage: e.target.value}})}
-                                    placeholder="https://images.unsplash.com/..."
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">About Section Text</label>
-                                <textarea 
-                                    className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
-                                    value={formData.theme.aboutText}
-                                    onChange={(e) => setFormData({...formData, theme: {...formData.theme, aboutText: e.target.value}})}
-                                    rows={4}
-                                    placeholder="Tell your customers about your restaurant..."
-                                />
-                            </div>
-                        </div>
-                    </div>
-
                     <div className="border-t border-gray-100 pt-6">
                         <h4 className="font-bold text-gray-900 mb-4 flex items-center">
                             <Layout className="h-4 w-4 mr-2 text-gray-500" /> Home Page View
@@ -445,6 +492,121 @@ const Settings: React.FC = () => {
 
                     <div className="border-t border-gray-100 pt-6">
                         <h4 className="font-bold text-gray-900 mb-4 flex items-center">
+                            <Layout className="h-4 w-4 mr-2 text-gray-500" /> Landing Page Settings
+                        </h4>
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Landing Hero Title</label>
+                                    <input 
+                                        type="text" 
+                                        className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                                        value={formData.theme.landingHeroTitle}
+                                        onChange={(e) => setFormData({...formData, theme: {...formData.theme, landingHeroTitle: e.target.value}})}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Landing Hero Subtitle</label>
+                                    <input 
+                                        type="text" 
+                                        className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                                        value={formData.theme.landingHeroSub}
+                                        onChange={(e) => setFormData({...formData, theme: {...formData.theme, landingHeroSub: e.target.value}})}
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">About Title</label>
+                                    <input 
+                                        type="text" 
+                                        className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                                        value={formData.theme.aboutTitle}
+                                        onChange={(e) => setFormData({...formData, theme: {...formData.theme, aboutTitle: e.target.value}})}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Hero Background Color</label>
+                                    <div className="flex gap-2 items-center">
+                                        <input 
+                                            type="color" 
+                                            className="h-10 w-16 p-0 border border-gray-300 rounded cursor-pointer"
+                                            value={formData.theme.heroBgColor}
+                                            onChange={(e) => setFormData({...formData, theme: {...formData.theme, heroBgColor: e.target.value}})}
+                                        />
+                                        <input 
+                                            type="text" 
+                                            className="flex-1 rounded-lg border-gray-300 border px-3 py-2 text-sm uppercase"
+                                            value={formData.theme.heroBgColor}
+                                            onChange={(e) => setFormData({...formData, theme: {...formData.theme, heroBgColor: e.target.value}})}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Hero Image URL</label>
+                                    <input 
+                                        type="text" 
+                                        className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                                        value={formData.theme.heroImage}
+                                        onChange={(e) => setFormData({...formData, theme: {...formData.theme, heroImage: e.target.value}})}
+                                        placeholder="https://images.unsplash.com/..."
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">About Section Text</label>
+                                    <textarea 
+                                        className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
+                                        value={formData.theme.aboutText}
+                                        onChange={(e) => setFormData({...formData, theme: {...formData.theme, aboutText: e.target.value}})}
+                                        rows={2}
+                                        placeholder="Tell your customers about your restaurant..."
+                                    />
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-4 border-t border-gray-100 pt-4">
+                                <h5 className="text-sm font-bold text-gray-800">Features Grid (3 Cards)</h5>
+                                {[0, 1, 2].map((index) => (
+                                    <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-4 p-3 bg-gray-50 rounded-lg">
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-500 mb-1">Feature {index + 1} Title</label>
+                                            <input 
+                                                type="text" 
+                                                className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm"
+                                                value={formData.theme.features?.[index]?.title || ''}
+                                                onChange={(e) => {
+                                                    const newFeatures = [...(formData.theme.features || [])];
+                                                    if (!newFeatures[index]) newFeatures[index] = { title: '', description: '' };
+                                                    newFeatures[index].title = e.target.value;
+                                                    setFormData({...formData, theme: {...formData.theme, features: newFeatures}});
+                                                }}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-500 mb-1">Feature {index + 1} Description</label>
+                                            <input 
+                                                type="text" 
+                                                className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm"
+                                                value={formData.theme.features?.[index]?.description || ''}
+                                                onChange={(e) => {
+                                                    const newFeatures = [...(formData.theme.features || [])];
+                                                    if (!newFeatures[index]) newFeatures[index] = { title: '', description: '' };
+                                                    newFeatures[index].description = e.target.value;
+                                                    setFormData({...formData, theme: {...formData.theme, features: newFeatures}});
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="border-t border-gray-100 pt-6">
+                        <h4 className="font-bold text-gray-900 mb-4 flex items-center">
                             <Palette className="h-4 w-4 mr-2 text-gray-500" /> Colors & Footer
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -466,6 +628,40 @@ const Settings: React.FC = () => {
                                 </div>
                             </div>
                             <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Primary Text Color</label>
+                                <div className="flex gap-2 items-center">
+                                    <input 
+                                        type="color" 
+                                        className="h-10 w-16 p-0 border border-gray-300 rounded cursor-pointer"
+                                        value={formData.theme.primaryTextColor}
+                                        onChange={(e) => setFormData({...formData, theme: {...formData.theme, primaryTextColor: e.target.value}})}
+                                    />
+                                    <input 
+                                        type="text" 
+                                        className="flex-1 rounded-lg border-gray-300 border px-3 py-2 text-sm uppercase"
+                                        value={formData.theme.primaryTextColor}
+                                        onChange={(e) => setFormData({...formData, theme: {...formData.theme, primaryTextColor: e.target.value}})}
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Footer Background Color</label>
+                                <div className="flex gap-2 items-center">
+                                    <input 
+                                        type="color" 
+                                        className="h-10 w-16 p-0 border border-gray-300 rounded cursor-pointer"
+                                        value={formData.theme.footerColor}
+                                        onChange={(e) => setFormData({...formData, theme: {...formData.theme, footerColor: e.target.value}})}
+                                    />
+                                    <input 
+                                        type="text" 
+                                        className="flex-1 rounded-lg border-gray-300 border px-3 py-2 text-sm uppercase"
+                                        value={formData.theme.footerColor}
+                                        onChange={(e) => setFormData({...formData, theme: {...formData.theme, footerColor: e.target.value}})}
+                                    />
+                                </div>
+                            </div>
+                            <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Receipt Footer Note</label>
                                 <input 
                                     type="text" 
@@ -474,6 +670,161 @@ const Settings: React.FC = () => {
                                     onChange={(e) => setFormData({...formData, receiptFooter: e.target.value})}
                                 />
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Notifications Tab */}
+            {activeTab === 'notifications' && (
+                <div className="space-y-8 animate-fade-in">
+                    {/* Section A: Push Notifications */}
+                    <div className="bg-orange-50 p-6 rounded-xl border border-orange-100">
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <h4 className="font-bold text-orange-800 flex items-center">
+                                    <Bell className="h-5 w-5 mr-2" /> Browser Push Notifications
+                                </h4>
+                                <p className="text-sm text-orange-700 mt-1">Get instant alerts on your desktop when a new order arrives.</p>
+                            </div>
+                            <label className="flex items-center cursor-pointer">
+                                <input 
+                                    type="checkbox"
+                                    className="sr-only peer"
+                                    checked={formData.notificationSettings.pushEnabled}
+                                    onChange={(e) => {
+                                        const isEnabled = e.target.checked;
+                                        setFormData({
+                                            ...formData, 
+                                            notificationSettings: {
+                                                ...formData.notificationSettings, 
+                                                pushEnabled: isEnabled
+                                            }
+                                        });
+                                        if (isEnabled) {
+                                            if ("Notification" in window) {
+                                                Notification.requestPermission().then(async (permission) => {
+                                                    if (permission === "granted" && restaurantId) {
+                                                        await requestForToken(restaurantId);
+                                                        toast.success("Push notifications enabled!");
+                                                    } else if (permission === "denied") {
+                                                        toast.error("Notification permission denied.");
+                                                    }
+                                                });
+                                            }
+                                        }
+                                    }}
+                                />
+                                <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
+                            </label>
+                        </div>
+                        <button 
+                            type="button"
+                            onClick={testPushNotification}
+                            className="bg-white text-orange-600 border border-orange-200 px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-100 transition shadow-sm"
+                        >
+                            Test Notification
+                        </button>
+                    </div>
+
+                    {/* Section B: Telegram Alerts */}
+                    <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h4 className="font-bold text-blue-800 flex items-center">
+                                    <Send className="h-5 w-5 mr-2" /> Telegram Alerts
+                                </h4>
+                                <p className="text-sm text-blue-700 mt-1">Send order details directly to your Telegram group or bot.</p>
+                            </div>
+                            <label className="flex items-center cursor-pointer">
+                                <input 
+                                    type="checkbox"
+                                    className="sr-only peer"
+                                    checked={formData.notificationSettings.telegramEnabled}
+                                    onChange={(e) => setFormData({
+                                        ...formData, 
+                                        notificationSettings: {
+                                            ...formData.notificationSettings, 
+                                            telegramEnabled: e.target.checked
+                                        }
+                                    })}
+                                />
+                                <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+                        
+                        <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${!formData.notificationSettings.telegramEnabled ? 'opacity-50 pointer-events-none' : ''}`}>
+                            <div>
+                                <label className="block text-sm font-medium text-blue-900 mb-1">Telegram Bot Token</label>
+                                <input 
+                                    type="password" 
+                                    className="w-full rounded-lg border-blue-200 border px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+                                    value={formData.notificationSettings.telegramToken}
+                                    onChange={(e) => setFormData({
+                                        ...formData, 
+                                        notificationSettings: {
+                                            ...formData.notificationSettings, 
+                                            telegramToken: e.target.value
+                                        }
+                                    })}
+                                    placeholder="123456789:ABCDefgh..."
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-blue-900 mb-1">Telegram Chat ID</label>
+                                <input 
+                                    type="text" 
+                                    className="w-full rounded-lg border-blue-200 border px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+                                    value={formData.notificationSettings.telegramChatId}
+                                    onChange={(e) => setFormData({
+                                        ...formData, 
+                                        notificationSettings: {
+                                            ...formData.notificationSettings, 
+                                            telegramChatId: e.target.value
+                                        }
+                                    })}
+                                    placeholder="-100123456789"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Section C: Custom Sound */}
+                    <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
+                        <h4 className="font-bold text-gray-800 flex items-center mb-4">
+                            <Volume2 className="h-5 w-5 mr-2" /> Order Alert Sound
+                        </h4>
+                        <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+                            <div className="flex-1 w-full">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Upload MP3/WAV Alert Sound</label>
+                                <input 
+                                    type="file" 
+                                    accept="audio/*"
+                                    onChange={handleSoundUpload}
+                                    className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
+                                />
+                                <p className="text-xs text-gray-500 mt-2">Maximum file size: 1MB. This sound will play when a new order is received.</p>
+                            </div>
+                            {formData.notificationSettings.alertSoundUrl && (
+                                <div className="bg-white p-3 rounded-lg border border-gray-200 flex items-center gap-3">
+                                    <audio controls className="h-8 w-48">
+                                        <source src={formData.notificationSettings.alertSoundUrl} />
+                                    </audio>
+                                    <button 
+                                        type="button"
+                                        onClick={() => setFormData({
+                                            ...formData, 
+                                            notificationSettings: {
+                                                ...formData.notificationSettings, 
+                                                alertSoundUrl: ''
+                                            }
+                                        })}
+                                        className="text-red-500 hover:text-red-700 text-xs font-bold"
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
