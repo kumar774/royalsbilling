@@ -44,14 +44,9 @@ const MenuManager: React.FC = () => {
     name: '',
     description: '',
     price: 0,
-    category: 'Veg',
-    customCategory: '',
-    newCategoryInput: '',
-    variants: [],
+    categoryGroup:'',
     image: 'https://picsum.photos/400/300',
     available: true,
-    categoryGroup: '', // Initialize with empty string
-    categorySpecific: '', // Initialize with empty string
   });
   
   const currentRestaurant = restaurants.find(r => r.id === restaurantId);
@@ -78,11 +73,9 @@ const MenuManager: React.FC = () => {
       setEditingItem(item);
       setFormData({
         ...item,
-        // Ensure these fields are always defined when editing
         customCategory: item.customCategory || '',
-        newCategoryInput: '', // Always reset for editing
         categoryGroup: item.categoryGroup || '',
-        categorySpecific: item.categorySpecific || '',
+
       });
  
     } else {
@@ -91,14 +84,11 @@ const MenuManager: React.FC = () => {
         name: '',
         description: '',
         price: 0,
-        category: 'Veg',
+        categoryGroup: '',
         customCategory: '',
-        newCategoryInput: '',
         variants: [],
         image: 'https://picsum.photos/400/300',
         available: true,
-        categoryGroup: '',
-        categorySpecific: '',
       });
 
     }
@@ -110,12 +100,12 @@ const MenuManager: React.FC = () => {
 
 
   const handleAddCategory = async () => {
-    if (!restaurantId || !formData.newCategoryInput.trim()) {
+    if (!restaurantId || !formData.categoryGroup.trim()) {
       toast.error("Please enter a category name.");
       return;
     }
 
-    const newCategory = formData.newCategoryInput.trim();
+    const newCategory = formData.categoryGroup.trim();
     if (currentRestaurant?.customCategories?.includes(newCategory)) {
       toast.error("Category already exists.");
       return;
@@ -128,7 +118,6 @@ const MenuManager: React.FC = () => {
         customCategories: [...(currentRestaurant?.customCategories || []), newCategory]
       });
       toast.success("Category added successfully!", { id: toastId });
-      setFormData(prev => ({ ...prev, newCategoryInput: '' }));
     } catch (error) {
       console.error("Error adding category:", error);
       toast.error("Failed to add category.", { id: toastId });
@@ -145,22 +134,15 @@ const MenuManager: React.FC = () => {
     const toastId = toast.loading(editingItem ? "Updating item..." : "Adding item...");
 
     try {
-      // Destructure to exclude newCategoryInput from the payload sent to Firestore
-      const { ...restFormData } = formData;
-
       const itemPayload = {
-        ...restFormData,
+        ...formData,
         // Ensure price is a number, default to 0 if NaN or undefined
-        price: Number(restFormData.price) || 0,
-        // Ensure categoryGroup and categorySpecific have fallback values
-        categoryGroup: restFormData.categoryGroup || restFormData.customCategory || 'Uncategorized',
-        categorySpecific: restFormData.categorySpecific || restFormData.customCategory || 'General',
+        price: Number(formData.price) || 0,
+        categoryGroup: formData.categoryGroup || formData.customCategory || '',
         // Ensure image has a default if empty
-        image: restFormData.image || 'https://picsum.photos/400/300',
+        image: formData.image || 'https://picsum.photos/400/300',
         // Ensure variants is always an array
-        variants: restFormData.variants || [],
-        // Ensure customCategory is a string
-        customCategory: restFormData.customCategory || '',
+        variants: formData.variants || [],
       };
 
       if (editingItem && editingItem.id) {
@@ -203,9 +185,8 @@ const MenuManager: React.FC = () => {
   const [isManualInputModalOpen, setIsManualInputModalOpen] = useState(false);
 
   const extractItemsWithGemini = async (text: string, base64Image?: string): Promise<Partial<MenuItem>[]> => {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY || "AIzaSyAB6TaszdstPNVB4IIyXlP2fBaH76CDB7c";
     if (!apiKey) {
-      console.error("VITE_GEMINI_API_KEY is missing! Check Vercel settings.");
       console.error("GEMINI_API_KEY is not set.");
       toast.error("AI features require a configured GEMINI_API_KEY.");
       return [];
@@ -268,10 +249,7 @@ const MenuManager: React.FC = () => {
           name: itemName,
           description: item.description || '',
           price: item.price || (item.variants && item.variants.length > 0 ? item.variants[0].price : 0),
-          category: categorizeItem(itemName),
-          customCategory: exactCategory,
-          categoryGroup: exactCategory,
-          categorySpecific: exactCategory,
+          categoryGroup: exactCategory || categorizeItem(itemName),
           variants: item.variants || [],
           image: '',
           available: true,
@@ -398,8 +376,7 @@ const MenuManager: React.FC = () => {
         const items = json.map(row => ({
           name: row.Name || row.name || '',
           price: parseFloat(String(row.Price || row.price || 0)),
-          category: categorizeItem(row.Name || row.name || ''),
-          customCategory: row.Category || row.category || '', // Use customCategory
+          categoryGroup: row.Category || row.category || categorizeItem(row.Name || row.name || ''),
           description: row.Description || row.description || '',
           image: `https://loremflickr.com/400/300/${encodeURIComponent((row.Name || row.name || 'food').toLowerCase().replace(/ /g, '-'))},food`,
           available: true,
@@ -499,7 +476,7 @@ const MenuManager: React.FC = () => {
     }
 
     const grouped = currentItems.reduce((acc, item) => {
-      const groupName = item.categorySpecific || 'Uncategorized';
+      const groupName = item.categoryGroup || 'Uncategorized';
       if (!acc[groupName]) {
         acc[groupName] = [];
       }
@@ -511,12 +488,19 @@ const MenuManager: React.FC = () => {
   }, [items, filterCategoryGroup]);
 
   const uniqueCategoryGroups = React.useMemo(() => {
-    const groups = new Set<string>();
-    items.forEach(item => {
-      if (item.categoryGroup) groups.add(item.categoryGroup);
-    });
-    return ['All', ...Array.from(groups).sort()];
-  }, [items]);
+    const menuCategories = Array.from(new Set(items.map(item => item.categoryGroup).filter(Boolean) as string[]));
+    
+    if (!currentRestaurant?.categoryOrder) {
+        return ['All', ...menuCategories.sort()];
+    }
+
+    const orderedGroups = currentRestaurant.categoryOrder.filter(group => 
+        menuCategories.includes(group)
+    );
+    const remainingGroups = menuCategories.filter(group => !orderedGroups.includes(group)).sort();
+    
+    return ['All', ...orderedGroups, ...remainingGroups];
+  }, [items, currentRestaurant?.categoryOrder]);
 
   if (loading) return <div className="p-8 text-center text-gray-500">Loading menu...</div>;
 
@@ -615,15 +599,17 @@ const MenuManager: React.FC = () => {
         ))}
       </div>
 
-      {/* Menu List - Grouped by categorySpecific */}
+      {/* Menu List - Grouped by category */}
       <div className="space-y-8">
         {Object.entries(filteredAndGroupedItems).length === 0 ? (
           <div className="p-8 text-center text-gray-500">No menu items found for the selected filter.</div>
         ) : (
           <React.Fragment>
-            {Object.entries(filteredAndGroupedItems).map(([categorySpecific, itemsInGroup]) => (
-              <div key={categorySpecific}>
-                <h3 className="text-xl font-bold text-gray-900 mb-4 border-b pb-2 border-gray-200">{categorySpecific}</h3>
+            {uniqueCategoryGroups.filter(cat => cat !== 'All' && filteredAndGroupedItems[cat]).map(categoryGroup => {
+              const itemsInGroup = filteredAndGroupedItems[categoryGroup];
+              return (
+                <div key={categoryGroup}>
+                  <h3 className="text-xl font-bold text-gray-900 mb-4 border-b pb-2 border-gray-200">{categoryGroup}</h3>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
@@ -668,7 +654,7 @@ const MenuManager: React.FC = () => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                {item.customCategory || 'N/A'}
+                                {item.categoryGroup || 'N/A'}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -696,7 +682,8 @@ const MenuManager: React.FC = () => {
                   </div>
                 </div>
               </div>
-            ))}
+            );
+          })}
           </React.Fragment>
         )}
       </div>
@@ -843,10 +830,10 @@ const MenuManager: React.FC = () => {
                             list="custom-categories-list"
                             placeholder="Select or type category"
                             className="border border-gray-200 rounded-lg bg-white px-2 py-1 focus:ring-1 focus:ring-orange-500 text-sm text-gray-700"
-                            value={item.customCategory}
+                            value={item.categoryGroup}
                             onChange={(e) => {
                               const newItems = [...reviewItems];
-                              newItems[idx].customCategory = e.target.value;
+                              newItems[idx].categoryGroup = e.target.value;
                               setReviewItems(newItems);
                             }}
                           />
@@ -996,8 +983,8 @@ const MenuManager: React.FC = () => {
                                     type="text"
                                     list="form-categories-list"
                                     className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
-                                    value={formData.customCategory}
-                                    onChange={(e) => setFormData({...formData, customCategory: e.target.value})}
+                                    value={formData.categoryGroup}
+                                    onChange={(e) => setFormData({...formData, categoryGroup: e.target.value})}
                                     placeholder="Select or type category"
                                 />
                                 <datalist id="form-categories-list">
@@ -1025,8 +1012,8 @@ const MenuManager: React.FC = () => {
                                 <input 
                                     type="text" 
                                     className="flex-1 rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
-                                    value={formData.newCategoryInput}
-                                    onChange={(e) => setFormData({...formData, newCategoryInput: e.target.value})}
+                                    value={formData.categoryGroup}
+                                    onChange={(e) => setFormData({...formData, categoryGroup: e.target.value})}
                                     placeholder="Enter new category name..."
                                 />
                                 <button 
