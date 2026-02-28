@@ -68,9 +68,10 @@ const CartDrawer: React.FC<CartDrawerProps> = () => {
   const deliveryFee = orderType === 'Delivery' ? defaultDeliveryCharge : 0;
   
   // Explicitly calculate split taxes
-  const gstPercentage = taxSettings?.gstPercentage || 0;
+  const applyTax = taxSettings?.applyTax ?? true;
+  const gstPercentage = applyTax ? (taxSettings?.gstPercentage || 0) : 0;
   const gstAmount = totalPrice * (gstPercentage / 100);
-  const serviceChargePercentage = taxSettings?.serviceChargePercentage || 0;
+  const serviceChargePercentage = applyTax ? (taxSettings?.serviceChargePercentage || 0) : 0;
   const serviceAmount = totalPrice * (serviceChargePercentage / 100);
   
   const finalTotal = totalPrice + gstAmount + serviceAmount + deliveryFee;
