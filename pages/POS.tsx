@@ -281,9 +281,6 @@ const POS: React.FC = () => {
             items: cart.map(item => ({
                 ...item,
                 selectedVariant: item.selectedVariant || null,
-                customCategory: item.customCategory || '',
-                categoryGroup: item.categoryGroup || '',
-                categorySpecific: item.categorySpecific || '',
             })),
             total: total || 0,
             subtotal: subtotal || 0,
