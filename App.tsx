@@ -8,7 +8,6 @@ import { RestaurantProvider } from './context/RestaurantContext';
 import { Toaster } from 'react-hot-toast';
 
 import { ThemeProvider } from './context/ThemeContext';
-import OrderNotificationListener from './components/OrderNotificationListener';
 
 const App: React.FC = () => {
   const [, setShowQrModal] = useState(false);
@@ -41,7 +40,6 @@ const App: React.FC = () => {
           }}
         />
         <RestaurantProvider>
-          <OrderNotificationListener />
           <Routes>
             {/* Admin / Auth Routes */}
             <Route path="/login" element={<Login />} />
