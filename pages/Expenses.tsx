@@ -112,8 +112,8 @@ const Expenses: React.FC = () => {
                    step="0.01"
                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500"
                    placeholder="0.00"
-                   value={formData.amount}
-                   onChange={e => setFormData({...formData, amount: e.target.value})}
+                   value={isNaN(parseFloat(formData.amount)) ? '0' : formData.amount}
+                   onChange={e => setFormData({...formData, amount: e.target.value === '' ? '0' : (parseFloat(e.target.value) || 0).toString()})}
                  />
                </div>
             </div>
