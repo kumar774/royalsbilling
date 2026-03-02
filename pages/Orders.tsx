@@ -6,6 +6,7 @@ import { Order, OrderStatus, Restaurant } from '../types';
 import { Trash2, AlertTriangle, Globe, Monitor, Printer, Download } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { generateProfessionalReceipt } from '../components/ReceiptPDF';
+import { sendTelegramMessage } from '../services/telegramService';
 
 const Orders: React.FC = () => {
   const { restaurantId } = useParams<{ restaurantId: string }>();
@@ -60,11 +61,29 @@ const Orders: React.FC = () => {
     return () => unsubscribe();
   }, [restaurantId]);
 
-  const updateStatus = async (orderId: string, newStatus: OrderStatus) => {
+   const updateStatus = async (orderId: string, newStatus: OrderStatus) => {
     if (!restaurantId) return;
     try {
       const orderRef = doc(db, 'restaurants', restaurantId, 'orders', orderId);
       await updateDoc(orderRef, { status: newStatus });
+
+      // Send Telegram Notification
+      if (restaurantData?.notificationSettings?.orderStatusUpdate && 
+          restaurantData?.notificationSettings?.telegramToken && 
+          restaurantData?.notificationSettings?.telegramChatId) {
+        const order = orders.find(o => o.id === orderId);
+        if (order) {
+          const message = `📦 *Order Status Update*\n\n` +
+                          `Order: #${order.formattedId || order.id.slice(0, 6)}\n` +
+                          `Customer: ${order.customerName}\n` +
+                          `New Status: *${newStatus.toUpperCase()}*`;
+          sendTelegramMessage(
+            restaurantData.notificationSettings.telegramToken,
+            restaurantData.notificationSettings.telegramChatId,
+            message
+          ).catch(err => console.error("Telegram notification failed:", err));
+        }
+      }
     } catch {
       // console.error("Failed to update status", err);
     }
@@ -82,12 +101,31 @@ const Orders: React.FC = () => {
       setShowCancelModal(true);
   };
 
-  const executeCancel = async () => {
+   const executeCancel = async () => {
       if (!restaurantId || !orderToCancel) return;
       const toastId = toast.loading("Cancelling order...");
       try {
           const orderRef = doc(db, 'restaurants', restaurantId, 'orders', orderToCancel);
           await updateDoc(orderRef, { status: 'Cancelled' });
+
+          // Send Telegram Notification
+          if (restaurantData?.notificationSettings?.orderStatusUpdate && 
+              restaurantData?.notificationSettings?.telegramToken && 
+              restaurantData?.notificationSettings?.telegramChatId) {
+            const order = orders.find(o => o.id === orderToCancel);
+            if (order) {
+              const message = `❌ *Order Cancelled*\n\n` +
+                              `Order: #${order.formattedId || order.id.slice(0, 6)}\n` +
+                              `Customer: ${order.customerName}\n` +
+                              `Status: *CANCELLED*`;
+              sendTelegramMessage(
+                restaurantData.notificationSettings.telegramToken,
+                restaurantData.notificationSettings.telegramChatId,
+                message
+              ).catch(err => console.error("Telegram notification failed:", err));
+            }
+          }
+
           toast.success("Order cancelled", { id: toastId });
           setShowCancelModal(false);
           setOrderToCancel(null);
@@ -150,12 +188,28 @@ const Orders: React.FC = () => {
 
 
 
-  const handleMarkAsPaid = async (order: Order) => {
+   const handleMarkAsPaid = async (order: Order) => {
     if (!restaurantId) return;
     try {
       const orderRef = doc(db, 'restaurants', restaurantId, 'orders', order.id);
       await updateDoc(orderRef, { paymentStatus: 'Paid' });
       
+      // Send Telegram Notification
+      if (restaurantData?.notificationSettings?.paymentStatusUpdate && 
+          restaurantData?.notificationSettings?.telegramToken && 
+          restaurantData?.notificationSettings?.telegramChatId) {
+        const message = `💳 *Payment Received*\n\n` +
+                        `Order: #${order.formattedId || order.id.slice(0, 6)}\n` +
+                        `Customer: ${order.customerName}\n` +
+                        `Amount: ₹${order.total.toFixed(2)}\n` +
+                        `Status: *PAID*`;
+        sendTelegramMessage(
+          restaurantData.notificationSettings.telegramToken,
+          restaurantData.notificationSettings.telegramChatId,
+          message
+        ).catch(err => console.error("Telegram notification failed:", err));
+      }
+
       // WhatsApp Logic
       if (order.customerPhone && order.customerPhone !== 'N/A') {
           const subtotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
