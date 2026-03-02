@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, deleteField } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import { Restaurant, ThemeSettings, TaxSettings, SocialLinks } from '../types';
-import { Save, Loader2, Clock, Palette, QrCode, Layout, Smartphone, Bike, Share2, Printer } from 'lucide-react';
+import { Restaurant, ThemeSettings, TaxSettings, SocialLinks, NotificationSettings } from '../types';
+import { Save, Loader2, Clock, Palette, QrCode, Layout, Smartphone, Bike, Share2, Printer, Bell, Send } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { sendTelegramMessage } from '../services/telegramService';
 
 const Settings: React.FC = () => {
   const { restaurantId } = useParams<{ restaurantId: string }>();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'operational' | 'branding'>('operational');
+  const [activeTab, setActiveTab] = useState<'operational' | 'branding' | 'notifications'>('operational');
   
   const [formData, setFormData] = useState({
     openingHours: '',
@@ -24,6 +25,14 @@ const Settings: React.FC = () => {
     receiptFooter: '',
     selectedPrinterSize: '80mm Thermal',
     printerSizes: ["80mm Thermal", "58mm Thermal", "A4", "A5", "2-inch", "3-inch", "4-inch", "Legal", "Letter", "Continuous"],
+    notificationSettings: {
+      pushEnabled: false,
+      telegramEnabled: false,
+      telegramToken: '',
+      telegramChatId: '',
+      alertSoundUrl: '',
+      fcmToken: '',
+    },
     // Theme Settings
     theme: {
       headerColor: '#ffffff',
@@ -111,6 +120,15 @@ const Settings: React.FC = () => {
                 facebook: data.socialMedia?.facebook || '',
                 twitter: data.socialMedia?.twitter || '',
                 linkedin: data.socialMedia?.linkedin || ''
+            },
+            notificationSettings: {
+              telegramEnabled: data.notificationSettings?.telegramEnabled || false,
+              telegramToken: data.notificationSettings?.telegramToken || '',
+              telegramChatId: data.notificationSettings?.telegramChatId || '',
+              customerOrderAlert: data.notificationSettings?.customerOrderAlert || false,
+              adminOrderAlert: data.notificationSettings?.adminOrderAlert || false,
+              orderStatusUpdate: data.notificationSettings?.orderStatusUpdate || false,
+              paymentStatusUpdate: data.notificationSettings?.paymentStatusUpdate || false,
             }
         });
       }
@@ -127,19 +145,89 @@ const Settings: React.FC = () => {
 
     try {
       const docRef = doc(db, 'restaurants', restaurantId);
-      await updateDoc(docRef, formData);
+      await updateDoc(docRef, {
+        ...formData,
+        pushEnabled: deleteField(),
+        telegramEnabled: deleteField(),
+        telegramToken: deleteField(),
+        telegramChatId: deleteField(),
+        alertSoundUrl: deleteField(),
+        fcmToken: deleteField(),
+        currentToken: deleteField(),
+        'notificationSettings.pushEnabled': deleteField(),
+        'notificationSettings.fcmToken': deleteField(),
+        'notificationSettings.alertSoundUrl': deleteField()
+      });
       toast.success("Settings updated successfully!", { id: toastId });
     } catch (error) {
       console.error(error);
-      toast.error("Failed to update settings: " + error.message, { id: toastId });
+      toast.error("Failed to update settings: " + (error as Error).message, { id: toastId });
     } finally {
       setSaving(false);
     }
   };
 
+  const handleTestNotification = async () => {
+    if (!formData.notificationSettings.telegramToken || !formData.notificationSettings.telegramChatId) {
+      toast.error("Please configure Telegram Bot Token and Chat ID first.");
+      return;
+    }
+
+    const toastId = toast.loading("Sending test Telegram message...");
+    
+    try {
+      const message = "🔔 *Test Notification*\n\nYour Telegram integration is working correctly! You will receive order alerts here.";
+      await sendTelegramMessage(
+        formData.notificationSettings.telegramToken,
+        formData.notificationSettings.telegramChatId,
+        message
+      );
+      toast.success("Test message sent successfully!", { id: toastId });
+    } catch (err) {
+      const error = err as Error;
+      console.error("Test notification error:", error);
+      toast.error("Test failed: " + error.message, { id: toastId });
+    }
+  };
+
+  const handleTelegramToggle = async (field: keyof NotificationSettings, enabled: boolean) => {
+    if (!restaurantId) return;
+    
+    const newNotificationSettings = { ...formData.notificationSettings, [field]: enabled };
+    const newFormData = { ...formData, notificationSettings: newNotificationSettings };
+    setFormData(newFormData);
+    
+    try {
+      const docRef = doc(db, 'restaurants', restaurantId);
+      await updateDoc(docRef, { [`notificationSettings.${field}`]: enabled });
+      toast.success("Notification setting updated");
+    } catch (error) {
+      console.error("Error updating Telegram settings:", error);
+      toast.error("Failed to update setting");
+    }
+  };
+
+  const handleSaveTelegramConfig = async () => {
+    if (!restaurantId) return;
+    const toastId = toast.loading("Saving Telegram config...");
+    try {
+      const docRef = doc(db, 'restaurants', restaurantId);
+      await updateDoc(docRef, { 
+        'notificationSettings.telegramToken': formData.notificationSettings.telegramToken,
+        'notificationSettings.telegramChatId': formData.notificationSettings.telegramChatId
+      });
+      toast.success("Telegram config saved!", { id: toastId });
+    } catch (error) {
+      console.error("Error saving Telegram config:", error);
+      toast.error("Failed to save Telegram config", { id: toastId });
+    }
+  };
+
+  // Removed handleSoundUpload as per request
+
   if (loading) return <div className="p-8">Loading settings...</div>;
 
-  const TabButton = ({ id, label, icon: Icon }: { id: 'operational' | 'branding', label: string, icon: React.ElementType }) => (
+  const TabButton = ({ id, label, icon: Icon }: { id: 'operational' | 'branding' | 'notifications', label: string, icon: React.ElementType }) => (
     <button
       onClick={() => setActiveTab(id)}
       className={`flex items-center px-6 py-3 border-b-2 font-medium text-sm transition-colors ${
@@ -165,6 +253,7 @@ const Settings: React.FC = () => {
         <div className="flex border-b border-gray-200">
             <TabButton id="operational" label="Operations & Billing" icon={QrCode} />
             <TabButton id="branding" label="Front-Page CMS" icon={Layout} />
+            <TabButton id="notifications" label="Notifications" icon={Bell} />
         </div>
 
         <form onSubmit={handleSave} className="p-6">
@@ -236,8 +325,8 @@ const Settings: React.FC = () => {
                                 <input 
                                     type="number" 
                                     className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
-                                    value={formData.nextOrderNumber}
-                                    onChange={(e) => setFormData({...formData, nextOrderNumber: parseInt(e.target.value) || 1})}
+                                    value={isNaN(formData.nextOrderNumber) ? 0 : formData.nextOrderNumber}
+                                    onChange={(e) => setFormData({...formData, nextOrderNumber: parseFloat(e.target.value) || 0})}
                                     placeholder="1"
                                 />
                                 <p className="text-xs text-gray-500 mt-1">The number for the next order.</p>
@@ -295,8 +384,8 @@ const Settings: React.FC = () => {
                                 <input 
                                     type="number" 
                                     className="w-full rounded-lg border-gray-300 border pl-9 pr-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
-                                    value={formData.defaultDeliveryCharge}
-                                    onChange={(e) => setFormData({...formData, defaultDeliveryCharge: parseFloat(e.target.value)})}
+                                    value={isNaN(formData.defaultDeliveryCharge) ? 0 : formData.defaultDeliveryCharge}
+                                    onChange={(e) => setFormData({...formData, defaultDeliveryCharge: parseFloat(e.target.value) || 0})}
                                     placeholder="0"
                                 />
                             </div>
@@ -323,8 +412,8 @@ const Settings: React.FC = () => {
                                 <input 
                                     type="number" 
                                     className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm"
-                                    value={formData.taxSettings.gstPercentage}
-                                    onChange={(e) => setFormData({...formData, taxSettings: {...formData.taxSettings, gstPercentage: parseFloat(e.target.value)}})}
+                                    value={isNaN(formData.taxSettings.gstPercentage) ? 0 : formData.taxSettings.gstPercentage}
+                                    onChange={(e) => setFormData({...formData, taxSettings: {...formData.taxSettings, gstPercentage: parseFloat(e.target.value) || 0}})}
                                 />
                             </div>
                             <div>
@@ -332,8 +421,8 @@ const Settings: React.FC = () => {
                                 <input 
                                     type="number" 
                                     className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm"
-                                    value={formData.taxSettings.serviceChargePercentage}
-                                    onChange={(e) => setFormData({...formData, taxSettings: {...formData.taxSettings, serviceChargePercentage: parseFloat(e.target.value)}})}
+                                    value={isNaN(formData.taxSettings.serviceChargePercentage) ? 0 : formData.taxSettings.serviceChargePercentage}
+                                    onChange={(e) => setFormData({...formData, taxSettings: {...formData.taxSettings, serviceChargePercentage: parseFloat(e.target.value) || 0}})}
                                 />
                             </div>
                         </div>
@@ -591,6 +680,137 @@ const Settings: React.FC = () => {
                                     value={formData.receiptFooter}
                                     onChange={(e) => setFormData({...formData, receiptFooter: e.target.value})}
                                 />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Notifications Tab */}
+            {activeTab === 'notifications' && (
+                <div className="space-y-6 animate-fade-in">
+                    <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center">
+                                <div className="bg-blue-100 p-2 rounded-lg mr-3">
+                                    <Send className="h-5 w-5 text-blue-600" />
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-blue-900">Telegram Bot Configuration</h4>
+                                    <p className="text-xs text-blue-700">Configure your bot to receive instant order alerts.</p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleTestNotification}
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition text-xs flex items-center shadow-sm"
+                            >
+                                <Send className="h-3 w-3 mr-2" /> Send Test Message
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                            <div>
+                                <label className="block text-xs font-bold text-blue-800 mb-1 uppercase tracking-wider">Bot Token</label>
+                                <input 
+                                    type="text" 
+                                    className="w-full rounded-lg border-blue-200 border px-3 py-2.5 text-sm focus:ring-blue-500 focus:border-blue-500 bg-white"
+                                    value={formData.notificationSettings.telegramToken}
+                                    onChange={(e) => setFormData({...formData, notificationSettings: { ...formData.notificationSettings, telegramToken: e.target.value }})}
+                                    placeholder="123456789:ABCdef..."
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-blue-800 mb-1 uppercase tracking-wider">Chat ID</label>
+                                <input 
+                                    type="text" 
+                                    className="w-full rounded-lg border-blue-200 border px-3 py-2.5 text-sm focus:ring-blue-500 focus:border-blue-500 bg-white"
+                                    value={formData.notificationSettings.telegramChatId}
+                                    onChange={(e) => setFormData({...formData, notificationSettings: { ...formData.notificationSettings, telegramChatId: e.target.value }})}
+                                    placeholder="-1001234567890"
+                                />
+                            </div>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={handleSaveTelegramConfig}
+                            className="w-full bg-white border border-blue-200 text-blue-700 font-bold py-2.5 rounded-lg hover:bg-blue-50 transition text-sm shadow-sm"
+                        >
+                            Save Bot Configuration
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h5 className="font-bold text-gray-900 text-sm">Customer Order Alert</h5>
+                                    <p className="text-[10px] text-gray-500">Notify when a customer places an order online.</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input 
+                                        type="checkbox"
+                                        className="sr-only peer"
+                                        checked={formData.notificationSettings.customerOrderAlert}
+                                        onChange={(e) => handleTelegramToggle('customerOrderAlert', e.target.checked)}
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h5 className="font-bold text-gray-900 text-sm">Admin Order Alert</h5>
+                                    <p className="text-[10px] text-gray-500">Notify when an order is created from the POS.</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input 
+                                        type="checkbox"
+                                        className="sr-only peer"
+                                        checked={formData.notificationSettings.adminOrderAlert}
+                                        onChange={(e) => handleTelegramToggle('adminOrderAlert', e.target.checked)}
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h5 className="font-bold text-gray-900 text-sm">Order Status Update</h5>
+                                    <p className="text-[10px] text-gray-500">Notify when order status changes (Preparing, Ready, etc).</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input 
+                                        type="checkbox"
+                                        className="sr-only peer"
+                                        checked={formData.notificationSettings.orderStatusUpdate}
+                                        onChange={(e) => handleTelegramToggle('orderStatusUpdate', e.target.checked)}
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h5 className="font-bold text-gray-900 text-sm">Payment Status Update</h5>
+                                    <p className="text-[10px] text-gray-500">Notify when an order is marked as PAID.</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input 
+                                        type="checkbox"
+                                        className="sr-only peer"
+                                        checked={formData.notificationSettings.paymentStatusUpdate}
+                                        onChange={(e) => handleTelegramToggle('paymentStatusUpdate', e.target.checked)}
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
+                                </label>
                             </div>
                         </div>
                     </div>
