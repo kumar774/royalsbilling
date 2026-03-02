@@ -7,6 +7,7 @@ import { toast } from 'react-hot-toast';
 import { OrderType, Restaurant, PaymentMethod, LastOrderDetails } from '../types';
 import { generateProfessionalReceipt } from './ReceiptPDF';
 import { QRCodeSVG } from 'qrcode.react';
+import { sendTelegramMessage, formatOrderMessage } from '../services/telegramService';
 
 interface CartDrawerProps {
   setShowQrModal?: (show: boolean) => void;
@@ -152,6 +153,18 @@ const CartDrawer: React.FC<CartDrawerProps> = () => {
 
       const docRef = await addDoc(collection(db, 'restaurants', restaurantId, 'orders'), orderPayload);
       
+      // Send Telegram Notification
+      if (restaurantData?.notificationSettings?.customerOrderAlert && 
+          restaurantData?.notificationSettings?.telegramToken && 
+          restaurantData?.notificationSettings?.telegramChatId) {
+        const message = formatOrderMessage(orderPayload as Order, restaurantData.name);
+        sendTelegramMessage(
+          restaurantData.notificationSettings.telegramToken,
+          restaurantData.notificationSettings.telegramChatId,
+          message
+        ).catch(err => console.error("Telegram notification failed:", err));
+      }
+
       // Increment nextOrderNumber in restaurant document
       await updateDoc(restaurantRef, {
           nextOrderNumber: increment(1)
