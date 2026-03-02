@@ -45,7 +45,7 @@ const MenuManager: React.FC = () => {
     description: '',
     price: 0,
     categoryGroup:'',
-    image: 'https://picsum.photos/400/300',
+    image: 'https://picsum.photos/seed/food/400/300',
     available: true,
   });
   
@@ -87,7 +87,7 @@ const MenuManager: React.FC = () => {
         categoryGroup: '',
         customCategory: '',
         variants: [],
-        image: 'https://picsum.photos/400/300',
+        image: 'https://picsum.photos/seed/food/400/300',
         available: true,
       });
 
@@ -140,7 +140,7 @@ const MenuManager: React.FC = () => {
         price: Number(formData.price) || 0,
         categoryGroup: formData.categoryGroup || formData.customCategory || '',
         // Ensure image has a default if empty
-        image: formData.image || 'https://picsum.photos/400/300',
+        image: formData.image || 'https://picsum.photos/seed/food/400/300',
         // Ensure variants is always an array
         variants: formData.variants || [],
       };
@@ -185,7 +185,7 @@ const MenuManager: React.FC = () => {
   const [isManualInputModalOpen, setIsManualInputModalOpen] = useState(false);
 
   const extractItemsWithGemini = async (text: string, base64Image?: string): Promise<Partial<MenuItem>[]> => {
-    const apiKey = process.env.GEMINI_API_KEY || "AIzaSyAB6TaszdstPNVB4IIyXlP2fBaH76CDB7c";
+    const apiKey = process.env.VITE_GEMINI_API_KEY;
     if (!apiKey) {
       console.error("GEMINI_API_KEY is not set.");
       toast.error("AI features require a configured GEMINI_API_KEY.");
@@ -805,11 +805,10 @@ const MenuManager: React.FC = () => {
                             <input 
                               type="number" 
                               className="w-24 border border-gray-200 rounded-lg bg-white px-2 py-1 focus:ring-1 focus:ring-orange-500 text-sm text-gray-700 font-bold"
-                              value={item.price}
+                              value={isNaN(item.price as number) ? 0 : item.price}
                               onChange={(e) => {
                                 const newItems = [...reviewItems];
-                                const val = parseFloat(e.target.value);
-                                newItems[idx].price = isNaN(val) ? 0 : val;
+                                newItems[idx].price = parseFloat(e.target.value) || 0;
                                 setReviewItems(newItems);
                               }}
                             />
@@ -1000,8 +999,8 @@ const MenuManager: React.FC = () => {
                                     step="0.01"
                                     required
                                     className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-orange-500 focus:border-orange-500"
-                                    value={formData.price}
-                                    onChange={(e) => setFormData({...formData, price: parseFloat(e.target.value)})}
+                                    value={isNaN(formData.price as number) ? 0 : formData.price}
+                                    onChange={(e) => setFormData({...formData, price: parseFloat(e.target.value) || 0})}
                                 />
                             </div>
                         </div>
@@ -1078,7 +1077,7 @@ const MenuManager: React.FC = () => {
                                             type="number" 
                                             placeholder="Price"
                                             className="w-24 rounded-lg border-gray-300 border px-3 py-1 text-xs focus:ring-orange-500 focus:border-orange-500"
-                                            value={variant.price}
+                                            value={isNaN(variant.price as number) ? 0 : variant.price}
                                             onChange={(e) => {
                                                 const newVariants = [...(formData.variants || [])];
                                                 newVariants[vIdx].price = parseFloat(e.target.value) || 0;
