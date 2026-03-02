@@ -1,4 +1,4 @@
-export type CategoryType = 'string';
+export type CategoryType = string;
 
 export interface Variant {
   size: string;
@@ -47,6 +47,20 @@ export interface ThemeSettings {
   features?: Feature[];
   socialMedia?: SocialLinks;
 }
+
+
+export interface NotificationSettings {
+  telegramEnabled: boolean;
+  telegramToken: string;
+  telegramChatId: string;
+  customerOrderAlert: boolean;
+  adminOrderAlert: boolean;
+  orderStatusUpdate: boolean;
+  paymentStatusUpdate: boolean;
+}
+
+
+
 export interface RestaurantSettings {
   openingHours?: string;
   deliveryTime?: string;
@@ -63,6 +77,8 @@ export interface RestaurantSettings {
   taxSettings?: TaxSettings;
   socialMedia?: SocialLinks;
   homeViewMode?: 'Landing Page' | 'Default List';
+  notificationSettings?: NotificationSettings;
+
 }
 
 export interface TaxSettings {
@@ -76,13 +92,6 @@ export interface SocialLinks {
   facebook?: string;
   twitter?: string;
   linkedin?: string;
-}
-export interface NotificationSettings {
-  pushEnabled: boolean;
-  telegramEnabled: boolean;
-  telegramToken: string;
-  telegramChatId: string;
-  alertSoundUrl: string;
 }
 
 export interface Restaurant {
@@ -114,7 +123,7 @@ export interface Restaurant {
   homeViewMode?: 'Landing Page' | 'Default List';
   categoryOrder?: string[];
   notificationSettings?: NotificationSettings;
-  fcmTokens?: string[];
+  
 }
 
 export interface CartItem extends MenuItem {
