@@ -6,7 +6,6 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import { RestaurantProvider } from './context/RestaurantContext';
 import { Toaster } from 'react-hot-toast';
-
 import { ThemeProvider } from './context/ThemeContext';
 
 const App: React.FC = () => {
