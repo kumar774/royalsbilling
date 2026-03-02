@@ -2,12 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { collection, onSnapshot, addDoc, doc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import { MenuItem, CartItem, OrderType, Restaurant, PaymentMethod, Variant } from '../types';
+import { MenuItem, CartItem, OrderType, Restaurant, PaymentMethod, Variant, Order } from '../types';
 import { Search, Plus, Minus, Trash2, CreditCard, Loader2, Printer, MessageSquare, CheckCircle, User, Phone, Wallet, QrCode, Tag, X, Bike, Utensils, ShoppingBag, Receipt, Copy, Download } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'react-hot-toast';
 import { generateProfessionalReceipt } from '../components/ReceiptPDF';
 import { Edit2 } from 'lucide-react';
+import { sendTelegramMessage, formatOrderMessage } from '../services/telegramService';
 
 
 interface LastOrderDetails {
@@ -216,7 +217,7 @@ const POS: React.FC = () => {
   // --- BILL CALCULATION LOGIC ---
   const calculateBill = () => {
     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const discountAmount = parseFloat(discount) || 0;
+    const discountAmount = Number(discount) || 0;
     
     // Taxable amount (usually Post-Discount)
     const taxableAmount = Math.max(0, subtotal - discountAmount);
@@ -234,7 +235,7 @@ const POS: React.FC = () => {
         if (serviceRate > 0) serviceAmount = taxableAmount * (serviceRate / 100);
     }
 
-    const activeDeliveryCharge = orderType === 'Delivery' ? parseFloat(deliveryCharge.toString()) || 0 : 0;
+    const activeDeliveryCharge = orderType === 'Delivery' ? Number(deliveryCharge) || 0 : 0;
     
     // Final Total
     const total = taxableAmount + gstAmount + serviceAmount + activeDeliveryCharge;
@@ -307,6 +308,18 @@ const POS: React.FC = () => {
       const docRef = await addDoc(collection(db, 'restaurants', restaurantId, 'orders'), orderData);
       const newOrderId = docRef.id;
       
+      // Send Telegram Notification
+      if (restaurantData?.notificationSettings?.adminOrderAlert && 
+          restaurantData?.notificationSettings?.telegramToken && 
+          restaurantData?.notificationSettings?.telegramChatId) {
+        const message = formatOrderMessage(orderData as Order, restaurantData.name);
+        sendTelegramMessage(
+          restaurantData.notificationSettings.telegramToken,
+          restaurantData.notificationSettings.telegramChatId,
+          message
+        ).catch(err => console.error("Telegram notification failed:", err));
+      }
+
       // Increment nextOrderNumber in restaurant document
       const restaurantRef = doc(db, 'restaurants', restaurantId);
       await updateDoc(restaurantRef, {
@@ -366,6 +379,23 @@ const POS: React.FC = () => {
     try {
       const orderRef = doc(db, 'restaurants', restaurantId, 'orders', lastOrderDetails.id);
       await updateDoc(orderRef, { paymentStatus: 'Paid' });
+      
+      // Send Telegram Notification
+      if (restaurantData?.notificationSettings?.paymentStatusUpdate && 
+          restaurantData?.notificationSettings?.telegramToken && 
+          restaurantData?.notificationSettings?.telegramChatId) {
+        const message = `💳 *Payment Received*\n\n` +
+                        `Order: #${lastOrderDetails.formattedId || lastOrderDetails.id.slice(0, 6)}\n` +
+                        `Customer: ${lastOrderDetails.customerName}\n` +
+                        `Amount: ₹${lastOrderDetails.total.toFixed(2)}\n` +
+                        `Status: *PAID*`;
+        sendTelegramMessage(
+          restaurantData.notificationSettings.telegramToken,
+          restaurantData.notificationSettings.telegramChatId,
+          message
+        ).catch(err => console.error("Telegram notification failed:", err));
+      }
+
       toast.success("Order marked as Paid", { id: toastId });
       setLastOrderDetails(prev => prev ? { ...prev, paymentStatus: 'Paid' } : null);
     } catch (err) {
@@ -853,7 +883,7 @@ const POS: React.FC = () => {
                             <input 
                                 type="number"
                                 className="w-full bg-transparent text-sm font-medium outline-none text-right"
-                                value={deliveryCharge}
+                                value={isNaN(deliveryCharge) ? 0 : deliveryCharge}
                                 onChange={(e) => setDeliveryCharge(parseFloat(e.target.value) || 0)}
                             />
                         </div>
@@ -867,8 +897,8 @@ const POS: React.FC = () => {
                             type="number"
                             className="w-full bg-transparent text-sm font-medium outline-none text-right"
                             placeholder="0"
-                            value={discount}
-                            onChange={(e) => setDiscount(e.target.value)}
+                            value={isNaN(parseFloat(discount)) ? '0' : discount}
+                            onChange={(e) => setDiscount(e.target.value === '' ? '0' : (parseFloat(e.target.value) || 0).toString())}
                         />
                     </div>
                  </div>
